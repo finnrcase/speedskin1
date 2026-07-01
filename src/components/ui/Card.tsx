@@ -19,8 +19,8 @@ export function Card({
   return (
     <Tag
       className={cn(
-        "rounded-card border border-line shadow-[0_1px_2px_rgba(88,64,38,0.05)]",
-        "transition-[border-color,box-shadow,transform,background-color] duration-200",
+        "rounded-card border border-line shadow-[0_1px_2px_rgba(88,64,38,0.04)]",
+        "transition-[border-color,background-color] duration-200",
         !hasBackground && "bg-surface",
         padded && "p-5 sm:p-6",
         className,

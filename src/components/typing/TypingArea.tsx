@@ -12,7 +12,6 @@ import { useStuckTimer } from "@/lib/typing/useStuckTimer";
 import { OnScreenKeyboard } from "@/components/keyboard/OnScreenKeyboard";
 import { StuckKeyHint } from "@/components/keyboard/StuckKeyHint";
 import { Prompt } from "./Prompt";
-import { StatsBar } from "./StatsBar";
 import { ResultsSummary } from "./ResultsSummary";
 import type { Lesson } from "@/lib/data/types";
 import { useUserProgress } from "@/lib/progress/UserProgressProvider";
@@ -111,14 +110,6 @@ function TypingRun({
     <div className="space-y-5">
       <ProgressBar value={engine.progress} label="Lesson progress" />
 
-      <StatsBar
-        wpm={engine.wpm}
-        accuracy={engine.accuracy}
-        mistakes={engine.mistakes}
-        elapsedMs={engine.elapsedMs}
-        remainingSeconds={engine.remainingSeconds}
-      />
-
       <Card className="min-h-44 border-brand/10 bg-cream">
         {isComplete && result ? (
           <ResultsSummary result={result} onRetry={handleRetry} nextHref={nextHref} />
@@ -166,10 +157,7 @@ function TypingRun({
               reveal={reveal}
               disabled={isComplete}
             />
-            <p className="text-center text-xs text-ink-faint">
-              Keys are hidden — type from memory. The correct key appears if you
-              get stuck.
-            </p>
+            <p className="text-center text-xs text-ink-faint">Type the sentence.</p>
           </div>
         ) : (
           <StuckKeyHint expectedChar={engine.expectedChar} reveal={reveal} />

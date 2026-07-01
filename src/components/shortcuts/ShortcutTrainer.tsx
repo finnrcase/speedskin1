@@ -6,10 +6,8 @@ import {
   ArrowRight,
   CheckCircle2,
   RotateCcw,
-  ShieldCheck,
   XCircle,
 } from "lucide-react";
-import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { buttonClasses } from "@/components/ui/Button";
@@ -37,7 +35,6 @@ import type {
   ShortcutTask,
 } from "@/lib/data/types";
 
-const STORAGE_KEY = "speedskin:shortcut-progress";
 const MODIFIER_KEYS = new Set(["Control", "Meta", "Shift", "Alt"]);
 
 interface ShortcutTrainerProps {
@@ -193,31 +190,8 @@ export function ShortcutTrainer({
   const masteryPct = shortcutMasteryPercentage(skillProgress);
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const stored = JSON.parse(raw) as ShortcutSkillProgress[];
-        if (Array.isArray(stored)) {
-          // eslint-disable-next-line react-hooks/set-state-in-effect
-          setSkillProgress(mergeProgress(allSeedProgress, stored));
-        }
-      }
-    } catch {
-      // Ignore corrupt or unavailable storage and use seed progress.
-    }
-  }, [allSeedProgress]);
-
-  useEffect(() => {
     surfaceRef.current?.focus();
   }, [sequence]);
-
-  const persistProgress = (next: ShortcutSkillProgress[]) => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // Progress is still kept in memory for this session.
-    }
-  };
 
   const restart = () => {
     setSequence(createShortcutSession(lesson));
@@ -268,7 +242,6 @@ export function ShortcutTrainer({
       (item) => item.shortcutId === attempt.shortcutId,
     );
     setSkillProgress(nextSkillProgress);
-    persistProgress(nextSkillProgress);
     if (updatedSkillProgress) {
       recordShortcutAttempt(lesson.id, attempt, updatedSkillProgress);
     }
@@ -313,51 +286,21 @@ export function ShortcutTrainer({
     <div className="space-y-5">
       <ProgressBar value={progressValue} label="Shortcut mission progress" />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Card className="bg-white/82 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-faint">
-            Correct
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink">
-            {correctAttempts}/{sequence.length}
-          </p>
-        </Card>
-        <Card className="bg-white/82 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-faint">
-            Accuracy
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink">{accuracy}%</p>
-        </Card>
-        <Card className="bg-white/82 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-faint">
-            Reaction
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink">
-            {averageMs ? `${(averageMs / 1000).toFixed(1)}s` : "--"}
-          </p>
-        </Card>
-        <Card className="bg-white/82 p-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-faint">
-            Mastery
-          </p>
-          <p className="mt-1 text-2xl font-bold text-ink">{masteryPct}%</p>
-        </Card>
+      <div className="flex items-center justify-between rounded-button border border-line bg-white px-4 py-3 text-sm font-semibold text-ink-soft">
+        <span>{correctAttempts}/{sequence.length} correct</span>
+        <span>{accuracy}% accuracy</span>
+        <span>{masteryPct}% mastery</span>
       </div>
 
       <Card className="min-h-80 border-brand/10 bg-cream">
         {complete ? (
           <div className="grid gap-5 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div className="space-y-3">
-              <Badge tone="success" icon={ShieldCheck}>
-                Mission complete
-              </Badge>
+            <div className="space-y-2">
               <h2 className="text-3xl font-bold tracking-tight text-ink">
-                Keyboard superpowers are getting faster.
+                Great work
               </h2>
-              <p className="max-w-xl text-sm leading-6 text-ink-soft">
-                You finished {sequence.length} prompts with {accuracy}% accuracy
-                and an average reaction time of{" "}
-                {averageMs ? `${(averageMs / 1000).toFixed(1)} seconds` : "0 seconds"}.
+              <p className="text-sm text-ink-soft">
+                {accuracy}% accuracy · {averageMs ? `${(averageMs / 1000).toFixed(1)}s` : "0s"}
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row lg:flex-col">
@@ -405,8 +348,8 @@ export function ShortcutTrainer({
             {currentTask && currentShortcut && (
               <div className="space-y-6 text-center">
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
-                    Prompt {index + 1} of {sequence.length}
+                  <p className="text-sm font-semibold text-brand">
+                    {index + 1} of {sequence.length}
                   </p>
                   <h2 className="mx-auto max-w-2xl text-3xl font-bold tracking-tight text-ink sm:text-4xl">
                     {currentTask.prompt}
@@ -418,10 +361,6 @@ export function ShortcutTrainer({
                   targetKey={currentShortcut.key.toUpperCase()}
                   strength={hintStrength(currentSkillProgress)}
                 />
-
-                <div className="mx-auto max-w-md rounded-button border border-line bg-cream px-3 py-2 text-sm text-ink-soft">
-                  {currentShortcut.description}
-                </div>
 
                 {feedback && (
                   <div
@@ -457,11 +396,8 @@ export function ShortcutTrainer({
 
       <Card className="space-y-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-faint">
-            Shortcut mastery
-          </p>
           <h2 className="mt-1 text-xl font-bold tracking-tight text-ink">
-            Skills in this level
+            This level
           </h2>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -476,16 +412,9 @@ export function ShortcutTrainer({
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-ink">{shortcut.label}</span>
-                  <Badge
-                    tone={
-                      item.masteryState === "Mastered" ||
-                      item.masteryState === "Comfortable"
-                        ? "success"
-                        : "neutral"
-                    }
-                  >
+                  <span className="text-xs font-semibold text-ink-faint">
                     {item.masteryState}
-                  </Badge>
+                  </span>
                 </div>
                 <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-ink-faint">
                   <span>{item.correctAttempts} correct</span>

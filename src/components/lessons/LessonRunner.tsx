@@ -61,7 +61,7 @@ export function LessonRunner({
           className="inline-flex items-center gap-2 rounded-full border border-brand/15 bg-brand-tint px-4 py-2 text-sm font-semibold text-brand hover:-translate-y-0.5 hover:bg-brand-light/40 no-select"
         >
           <RotateCcw className="size-4" strokeWidth={1.8} aria-hidden />
-          New prompt
+          New sentence
         </button>
       </div>
     </div>

@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { UserRole } from "@/lib/data/types";
 import { cn } from "@/lib/utils";
@@ -13,17 +11,17 @@ const roles: { role: UserRole; title: string; copy: string }[] = [
   {
     role: "student",
     title: "Student",
-    copy: "Practice lessons, join classes, and complete homework.",
+    copy: "I am learning.",
   },
   {
     role: "teacher",
     title: "Teacher",
-    copy: "Create classes, share join codes, and assign work.",
+    copy: "I teach a class.",
   },
   {
     role: "admin",
     title: "Admin",
-    copy: "Review all classrooms and manage the SpeedSkin workspace.",
+    copy: "I manage SpeedSkin.",
   },
 ];
 
@@ -44,18 +42,11 @@ export function RoleOnboarding() {
   };
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-[radial-gradient(circle_at_top,rgba(249,115,22,0.18),transparent_38%),linear-gradient(135deg,#fffaf3,#fff7ed)] px-4 py-8">
-      <Card className="w-full max-w-xl border-brand/15 bg-white/90 p-6 shadow-[0_24px_70px_rgba(88,64,38,0.14)]">
-        <Badge tone="brand" icon={ShieldCheck}>
-          One more step
-        </Badge>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-ink">
-          Choose your SpeedSkin role
+    <main className="grid min-h-dvh place-items-center bg-cream px-4 py-8">
+      <Card className="w-full max-w-md bg-white">
+        <h1 className="text-3xl font-bold tracking-tight text-ink">
+          Are you learning or teaching?
         </h1>
-        <p className="mt-2 text-sm leading-6 text-ink-soft">
-          Google sign-in worked. Pick how you will use SpeedSkin so we can send
-          you to the right dashboard next time.
-        </p>
 
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <label className="block space-y-1.5 text-sm font-semibold text-ink-soft">

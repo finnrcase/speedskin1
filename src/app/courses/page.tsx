@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, Clock, type LucideIcon } from "lucide-react";
+import { ArrowRight, CheckCircle2, type LucideIcon } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -59,11 +59,11 @@ export default function CoursesPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-7">
       <PageHeader
-        eyebrow="Courses"
-        title="Your learning courses"
-        subtitle="Typing is the foundation. Build real digital skills — one calm, focused path at a time."
+        eyebrow="Learn"
+        title="Pick a path"
+        subtitle="Typing, coding, and shortcuts."
       />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -76,19 +76,18 @@ export default function CoursesPage() {
         ))}
       </section>
 
-      <section className="space-y-4">
-        <div className="flex items-baseline justify-between gap-2">
+      {FUTURE_COURSES.length > 0 && (
+        <section className="space-y-3">
           <h2 className="text-xl font-bold tracking-tight text-ink">
-            More on the way
+            Coming soon
           </h2>
-          <span className="text-sm text-ink-faint">New courses coming soon</span>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {FUTURE_COURSES.map((course) => (
-            <FutureCourseCard key={course.id} course={course} />
-          ))}
-        </div>
-      </section>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {FUTURE_COURSES.map((course) => (
+              <FutureCourseCard key={course.id} course={course} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
@@ -122,7 +121,7 @@ function ActiveCourseCard({
   const cta = completed === 0 ? "Start course" : done ? "Review course" : "Continue";
 
   return (
-    <Card className="interactive flex h-full flex-col gap-5">
+    <Card className="flex h-full flex-col gap-5 hover:border-brand/25">
       <div className="flex items-start gap-3">
         <CourseIcon Icon={course.Icon} />
         <div className="min-w-0 flex-1">
@@ -137,8 +136,6 @@ function ActiveCourseCard({
           </Badge>
         )}
       </div>
-
-      <p className="text-sm leading-6 text-ink-soft">{course.description}</p>
 
       <div className="mt-auto space-y-3">
         <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-ink-faint">
@@ -163,7 +160,7 @@ function ActiveCourseCard({
 
 function FutureCourseCard({ course }: { course: Course }) {
   return (
-    <Card className="flex h-full flex-col gap-4 border-dashed bg-surface-muted/60">
+    <Card className="flex h-full flex-col gap-3 border-dashed bg-surface-muted/60">
       <CourseIcon Icon={course.Icon} muted />
       <div className="flex-1">
         <h3 className="text-base font-bold tracking-tight text-ink">
@@ -171,9 +168,7 @@ function FutureCourseCard({ course }: { course: Course }) {
         </h3>
         <p className="mt-1 text-sm text-ink-soft">{course.subtitle}</p>
       </div>
-      <Badge tone="neutral" icon={Clock}>
-        Coming soon
-      </Badge>
+      <span className="text-sm font-semibold text-ink-faint">Coming soon</span>
     </Card>
   );
 }

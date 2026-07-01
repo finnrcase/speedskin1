@@ -16,7 +16,7 @@ export default function AdminPage() {
       <PageHeader
         eyebrow="Admin"
         title="SpeedSkin workspace"
-        subtitle="High-level account, classroom, and assignment visibility for product admins."
+        subtitle="Classes, students, and assignments."
       />
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -50,14 +50,12 @@ export default function AdminPage() {
         />
       </section>
 
-      <Card className="warm-panel border-brand/15">
+      <Card className="border-brand/15 bg-white">
         <h2 className="text-xl font-bold tracking-tight text-ink">
-          Admin data access
+          Data access
         </h2>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-ink-soft">
-          The Supabase migration grants admins access to all app data through
-          RLS policies. This dashboard intentionally stays simple until the
-          product needs account management tools.
+        <p className="mt-2 max-w-xl text-sm text-ink-soft">
+          Admins can view workspace data through Supabase RLS.
         </p>
       </Card>
     </div>

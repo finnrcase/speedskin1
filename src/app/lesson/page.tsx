@@ -78,33 +78,33 @@ export default function LessonListPage() {
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Lessons"
-        title="Pick a path"
-        subtitle="Master typing, build coding syntax, then turn those skills into fast everyday keyboard commands."
+        eyebrow="Learn"
+        title="Lessons"
+        subtitle="Choose typing or coding."
       />
 
       <section className="grid gap-4 md:grid-cols-3">
         <CourseCard
           title="Learn to Type"
-          copy="Build clean keyboard control with progressive touch-typing levels."
+          copy="Practice letters, words, and sentences."
           href="#typing-basics"
           Icon={BookOpen}
         />
         <CourseCard
           title="Learn to Code"
-          copy="Practice Python syntax so code symbols feel familiar before projects."
+          copy="Type simple Python patterns."
           href="#python-typing"
           Icon={Code2}
         />
         <CourseCard
           title="Keyboard Shortcuts"
-          copy="Practice Copy, Paste, Undo, Save, Find, and browser commands."
+          copy="Practice real shortcut keys."
           href="/shortcuts"
           Icon={Command}
         />
       </section>
 
-      <Card className="warm-panel space-y-3 border-brand/15">
+      <Card className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-lg font-bold tracking-tight text-ink">
             Your progress
@@ -119,7 +119,7 @@ export default function LessonListPage() {
       <LearningJourney
         items={journeyItems}
         title="Typing Basics journey"
-        subtitle="Complete each level to unlock the next skill and build steady keyboard confidence."
+        subtitle="One level at a time."
       />
 
       <section id="typing-basics" className="space-y-4 scroll-mt-8">
@@ -143,11 +143,6 @@ export default function LessonListPage() {
             Python Typing
           </h2>
         </div>
-        <p className="-mt-2 max-w-2xl text-sm text-ink-soft">
-          Typing practice for basic Python syntax — print statements, variables,
-          conditions, and loops. Not a code editor; just build muscle memory for
-          the symbols you&apos;ll use when you start programming.
-        </p>
         <LessonGrid lessons={python} getLessonProgress={getLessonProgress} />
       </section>
     </div>

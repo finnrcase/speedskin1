@@ -37,9 +37,11 @@ export interface UserProfile {
   userId: string;
   email: string;
   fullName: string;
+  avatarUrl: string | null;
   role: UserRole | null;
   createdAt: string;
   updatedAt: string;
+  lastLogin: string | null;
 }
 
 export interface Lesson {

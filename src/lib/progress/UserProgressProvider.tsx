@@ -33,18 +33,10 @@ import type {
   ShortcutSkillProgressRow,
 } from "@/lib/supabase/types";
 
-const STORAGE_PREFIX = "speedskin:user-progress";
-
 interface LessonProgressRecord extends LessonProgress {
   track: LessonTrack;
   completedSessions: number;
   minutesPracticed: number;
-}
-
-interface StoredProgress {
-  lessonProgress: LessonProgressRecord[];
-  shortcutLessonProgress: ShortcutProgress[];
-  shortcutSkillProgress: ShortcutSkillProgress[];
 }
 
 interface UserProgressContextValue {
@@ -79,9 +71,6 @@ function initials(name: string) {
     .join("") || "SS";
 }
 
-function storageKey(userId: string) {
-  return `${STORAGE_PREFIX}:${userId}`;
-}
 
 function starsFor(result: TypingResult): 0 | 1 | 2 | 3 {
   if (result.accuracy >= 96 && result.wpm >= 25) return 3;
@@ -276,28 +265,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
   >(defaultShortcutSkillProgress());
   const [ready, setReady] = useState(false);
 
-  const userId = profile?.id ?? "demo";
-
-  const persistLocal = useCallback(
-    (
-      nextLessonProgress = lessonProgress,
-      nextShortcutLessonProgress = shortcutLessonProgress,
-      nextShortcutSkillProgress = shortcutSkillProgress,
-    ) => {
-      if (!profile) return;
-      const stored: StoredProgress = {
-        lessonProgress: Object.values(nextLessonProgress),
-        shortcutLessonProgress: Object.values(nextShortcutLessonProgress),
-        shortcutSkillProgress: nextShortcutSkillProgress,
-      };
-      try {
-        window.localStorage.setItem(storageKey(profile.id), JSON.stringify(stored));
-      } catch {
-        // Local persistence is best-effort; Supabase remains the source of truth.
-      }
-    },
-    [lessonProgress, profile, shortcutLessonProgress, shortcutSkillProgress],
-  );
+  const userId = profile?.id ?? "guest";
 
   useEffect(() => {
     if (status !== "authenticated" || !profile) {
@@ -312,74 +280,50 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
     const activeProfile = profile;
 
     async function load() {
-      let local: StoredProgress | null = null;
-      try {
-        const raw = window.localStorage.getItem(storageKey(activeProfile.id));
-        local = raw ? (JSON.parse(raw) as StoredProgress) : null;
-      } catch {
-        local = null;
+      if (!supabase) {
+        if (active) setReady(true);
+        return;
       }
 
-      const localLessons = Object.fromEntries(
-        (local?.lessonProgress ?? []).map((p) => [p.lessonId, p]),
-      );
-      const localShortcutLessons = Object.fromEntries(
-        (local?.shortcutLessonProgress ?? []).map((p) => [p.lessonId, p]),
-      );
-      let localShortcutSkills = mergeShortcutSkills(
-        local?.shortcutSkillProgress ?? [],
-      );
-
-      if (supabase) {
-        const [lessonRows, shortcutLessonRows, shortcutSkillRows] =
-          await Promise.all([
-            supabase
-              .from("lesson_progress")
-              .select("*")
-              .eq("user_id", activeProfile.id),
-            supabase
-              .from("shortcut_lesson_progress")
-              .select("*")
-              .eq("user_id", activeProfile.id),
-            supabase
-              .from("shortcut_skill_progress")
-              .select("*")
-              .eq("user_id", activeProfile.id),
-          ]);
-
-        if (lessonRows.data) {
-          Object.assign(
-            localLessons,
-            Object.fromEntries(
-              lessonRows.data.map((row) => {
-                const record = lessonRecordFromRow(row);
-                return [record.lessonId, record];
-              }),
-            ),
-          );
-        }
-        if (shortcutLessonRows.data) {
-          Object.assign(
-            localShortcutLessons,
-            Object.fromEntries(
-              shortcutLessonRows.data.map((row) => {
-                const record = shortcutLessonFromRow(row);
-                return [record.lessonId, record];
-              }),
-            ),
-          );
-        }
-        if (shortcutSkillRows.data) {
-          localShortcutSkills = mergeShortcutSkills(
-            shortcutSkillRows.data.map(shortcutSkillFromRow),
-          );
-        }
-      }
+      const [lessonRows, shortcutLessonRows, shortcutSkillRows] =
+        await Promise.all([
+          supabase
+            .from("lesson_progress")
+            .select("*")
+            .eq("user_id", activeProfile.id),
+          supabase
+            .from("shortcut_lesson_progress")
+            .select("*")
+            .eq("user_id", activeProfile.id),
+          supabase
+            .from("shortcut_skill_progress")
+            .select("*")
+            .eq("user_id", activeProfile.id),
+        ]);
 
       if (!active) return;
-      setLessonProgress(localLessons);
-      setShortcutLessonProgress(localShortcutLessons);
-      setShortcutSkillProgress(localShortcutSkills);
+
+      setLessonProgress(
+        Object.fromEntries(
+          (lessonRows.data ?? []).map((row) => {
+            const record = lessonRecordFromRow(row);
+            return [record.lessonId, record];
+          }),
+        ),
+      );
+      setShortcutLessonProgress(
+        Object.fromEntries(
+          (shortcutLessonRows.data ?? []).map((row) => {
+            const record = shortcutLessonFromRow(row);
+            return [record.lessonId, record];
+          }),
+        ),
+      );
+      setShortcutSkillProgress(
+        mergeShortcutSkills(
+          (shortcutSkillRows.data ?? []).map(shortcutSkillFromRow),
+        ),
+      );
       setReady(true);
     }
 
@@ -466,7 +410,6 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
       };
       const next = { ...lessonProgress, [lesson.id]: nextRecord };
       setLessonProgress(next);
-      persistLocal(next);
 
       if (supabase) {
         void supabase.from("lesson_progress").upsert(
@@ -494,7 +437,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
         });
       }
     },
-    [getLessonProgress, lessonProgress, persistLocal, profile, supabase],
+    [getLessonProgress, lessonProgress, profile, supabase],
   );
 
   const recordShortcutAttempt = useCallback(
@@ -510,7 +453,6 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
         ),
       );
       setShortcutSkillProgress(nextSkills);
-      persistLocal(undefined, undefined, nextSkills);
 
       if (supabase) {
         void supabase.from("shortcut_skill_progress").upsert(
@@ -535,7 +477,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
         });
       }
     },
-    [persistLocal, profile, shortcutSkillProgress, supabase],
+    [profile, shortcutSkillProgress, supabase],
   );
 
   const recordShortcutLessonResult = useCallback(
@@ -555,7 +497,6 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
       };
       const next = { ...shortcutLessonProgress, [lesson.id]: nextRecord };
       setShortcutLessonProgress(next);
-      persistLocal(undefined, next);
 
       if (supabase) {
         void supabase.from("shortcut_lesson_progress").upsert(
@@ -571,13 +512,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
         );
       }
     },
-    [
-      getShortcutLessonProgress,
-      persistLocal,
-      profile,
-      shortcutLessonProgress,
-      supabase,
-    ],
+    [getShortcutLessonProgress, profile, shortcutLessonProgress, supabase],
   );
 
   const user = useMemo(() => {

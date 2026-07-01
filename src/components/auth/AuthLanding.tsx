@@ -1,11 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Globe2, KeyRound, LogIn, ShieldCheck, Sparkles, UserPlus } from "lucide-react";
+import { Globe2, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { UserRole } from "@/lib/data/types";
 import { cn } from "@/lib/utils";
@@ -14,28 +12,22 @@ const roleOptions: { role: UserRole; title: string; copy: string }[] = [
   {
     role: "student",
     title: "Student",
-    copy: "Practice lessons, join classes, and finish homework.",
+    copy: "I am learning.",
   },
   {
     role: "teacher",
     title: "Teacher",
-    copy: "Create classes, assign missions, and review progress.",
+    copy: "I teach a class.",
   },
   {
     role: "admin",
     title: "Admin",
-    copy: "Manage the product workspace and support classrooms.",
+    copy: "I manage SpeedSkin.",
   },
 ];
 
 function inputClass() {
   return "h-12 w-full rounded-button border border-line bg-white px-4 text-sm text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/25";
-}
-
-function homeForRole(role: UserRole) {
-  if (role === "teacher") return "/teacher";
-  if (role === "admin") return "/admin";
-  return "/";
 }
 
 export function AuthLanding() {
@@ -45,10 +37,8 @@ export function AuthLanding() {
     signInWithEmail,
     signInWithGoogle,
     signUpWithEmail,
-    signInAsDemo,
     status,
   } = useAuth();
-  const router = useRouter();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [role, setRole] = useState<UserRole>("student");
   const [fullName, setFullName] = useState("");
@@ -89,96 +79,27 @@ export function AuthLanding() {
   };
 
   return (
-    <main className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.16),transparent_36%),linear-gradient(135deg,#fffaf3,#f8efe2_54%,#fff7ed)] px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mx-auto grid min-h-[calc(100dvh-4rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="space-y-6">
-          <Badge tone="brand" icon={Sparkles}>
-            SpeedSkin classroom accounts
-          </Badge>
-          <div className="max-w-2xl space-y-4">
-            <h1 className="text-4xl font-bold tracking-tight text-ink sm:text-6xl">
-              Keyboard confidence, saved for every student.
-            </h1>
-            <p className="text-lg leading-8 text-ink-soft">
-              Sign in to keep typing progress, coding practice, shortcut
-              mastery, classes, and homework connected to a real account.
-            </p>
+    <main className="grid min-h-dvh place-items-center bg-cream px-4 py-8">
+      <div className="w-full max-w-md space-y-5">
+        <section className="text-center">
+          <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-brand text-xl font-bold text-white">
+            S
           </div>
-          <div className="grid max-w-2xl gap-3 sm:grid-cols-3">
-            {[
-              ["Student progress", "Lessons stay with each learner."],
-              ["Teacher ownership", "Classes and assignments belong to you."],
-              ["Secure data", "Supabase Auth and RLS protect records."],
-            ].map(([title, copy]) => (
-              <div
-                key={title}
-                className="rounded-card border border-white/70 bg-white/72 p-4 shadow-[0_12px_30px_rgba(88,64,38,0.08)]"
-              >
-                <ShieldCheck className="size-5 text-brand" strokeWidth={1.8} />
-                <h2 className="mt-3 text-sm font-bold text-ink">{title}</h2>
-                <p className="mt-1 text-xs leading-5 text-ink-soft">{copy}</p>
-              </div>
-            ))}
-          </div>
+          <h1 className="text-4xl font-bold tracking-tight text-ink">
+            SpeedSkin
+          </h1>
+          <p className="mt-2 text-sm text-ink-soft">
+            Learn typing, coding, and keyboard shortcuts.
+          </p>
         </section>
 
-        <Card className="border-brand/15 bg-white/88 p-5 shadow-[0_24px_70px_rgba(88,64,38,0.15)] sm:p-6">
+        <Card className="bg-white">
           <div className="space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
-              Welcome to SpeedSkin
-            </p>
             <h2 className="text-2xl font-bold tracking-tight text-ink">
-              Log in or create your account
+              Sign in
             </h2>
-            <p className="text-sm leading-6 text-ink-soft">
-              Choose the role that matches how you use SpeedSkin.
-            </p>
+            <p className="text-sm text-ink-soft">Choose how to continue.</p>
           </div>
-
-          {unconfigured && (
-            <div className="mt-5 space-y-3 rounded-card border border-brand/20 bg-brand-tint/60 p-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="size-4 text-brand" strokeWidth={1.8} aria-hidden />
-                <p className="text-sm font-bold text-ink">
-                  Try the demo — no account needed
-                </p>
-              </div>
-              <p className="text-xs leading-5 text-ink-soft">
-                Accounts need Supabase configured. Meanwhile, explore SpeedSkin
-                with sample data. Pick a role to start:
-              </p>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {roleOptions.map((option) => (
-                  <button
-                    key={option.role}
-                    type="button"
-                    onClick={() => setRole(option.role)}
-                    aria-pressed={role === option.role}
-                    className={cn(
-                      "rounded-button border px-3 py-2 text-center text-sm font-bold transition",
-                      role === option.role
-                        ? "border-brand/40 bg-white text-ink ring-2 ring-brand/10"
-                        : "border-line bg-white/70 text-ink-soft hover:border-brand/25",
-                    )}
-                  >
-                    {option.title}
-                  </button>
-                ))}
-              </div>
-              <Button
-                type="button"
-                size="lg"
-                className="w-full justify-center"
-                onClick={() => {
-                  signInAsDemo(role, fullName);
-                  router.replace(homeForRole(role));
-                }}
-              >
-                <Sparkles className="size-4" strokeWidth={1.8} aria-hidden />
-                Explore the demo
-              </Button>
-            </div>
-          )}
 
           <div className="mt-5 grid gap-3">
             <Button
@@ -316,11 +237,6 @@ export function AuthLanding() {
             </Button>
           </form>
 
-          <div className="mt-5 flex items-center gap-2 rounded-button bg-cream px-3 py-2 text-xs leading-5 text-ink-faint">
-            <KeyRound className="size-4 shrink-0 text-brand" strokeWidth={1.8} />
-            Sessions persist with Supabase cookies, so learners stay signed in
-            across refreshes.
-          </div>
         </Card>
       </div>
     </main>

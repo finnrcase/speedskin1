@@ -21,14 +21,9 @@ export function ResultsSummary({ result, onRetry, nextHref }: ResultsSummaryProp
   const stars = starCount(result.accuracy);
 
   return (
-    <div className="warm-panel -m-2 space-y-6 rounded-card border border-brand/15 p-5 text-center sm:m-0">
+    <div className="-m-2 space-y-6 rounded-card border border-brand/15 bg-white p-5 text-center sm:m-0">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
-          Lesson complete
-        </p>
-        <h2 className="mt-2 text-3xl font-bold tracking-tight text-ink">
-          Strong finish
-        </h2>
+        <h2 className="text-3xl font-bold tracking-tight text-ink">Great work</h2>
         <div className="mt-3 flex justify-center">
           <Stars count={stars} className="[&_svg]:size-5" />
         </div>

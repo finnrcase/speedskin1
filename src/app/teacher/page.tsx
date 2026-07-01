@@ -5,7 +5,6 @@ import {
   Activity,
   BookOpenCheck,
   ClipboardList,
-  Clock3,
   Command,
   Download,
   Gauge,
@@ -20,13 +19,12 @@ import { StatCard } from "@/components/ui/StatCard";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { useClassroom } from "@/lib/classroom/ClassroomProvider";
-import { computeClassStats, summarizeStudent } from "@/lib/classroom/evaluate";
+import { computeClassStats } from "@/lib/classroom/evaluate";
 import { StudentProgressTable } from "@/components/classroom/StudentProgressTable";
 import { AssignmentCompletionTable } from "@/components/classroom/AssignmentCompletionTable";
 import { AssignmentForm } from "@/components/classroom/AssignmentForm";
 import { buildRosterCsv } from "@/lib/csv";
 import { PYTHON_LESSON_COUNT, SHORTCUT_LESSON_COUNT } from "@/lib/data";
-import { shortcutLabel } from "@/lib/shortcuts/catalog";
 
 export default function TeacherPage() {
   const {
@@ -74,26 +72,22 @@ export default function TeacherPage() {
     URL.revokeObjectURL(url);
   };
 
-  const practiceHours = Math.round(stats.totalPracticeMinutes / 60);
+  const behindCount = students.filter((student) => student.status === "needs-practice").length;
 
   return (
-    <div className="space-y-8">
-      <Card className="warm-panel border-brand/15">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+    <div className="space-y-7">
+      <Card className="border-brand/15 bg-white">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex gap-4">
-            <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-brand text-white shadow-[0_10px_24px_rgba(249,115,22,0.22)]">
+            <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-brand text-white">
               <Users className="size-7" strokeWidth={1.8} aria-hidden />
             </span>
-            <div className="space-y-2">
-              <p className="inline-flex rounded-full bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-brand">
-                Teacher dashboard
-              </p>
+            <div>
               <h1 className="text-3xl font-bold tracking-tight text-ink sm:text-4xl">
                 {activeClass?.name ?? "Your classes"}
               </h1>
-              <p className="max-w-2xl text-base leading-7 text-ink-soft">
-                {teacher.name} can review practice, assign typing goals, and
-                spot where students need support.
+              <p className="mt-1 text-sm text-ink-soft">
+                {teacher.name}
               </p>
             </div>
           </div>
@@ -110,32 +104,23 @@ export default function TeacherPage() {
         </div>
 
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-button border border-white/70 bg-white/70 p-3">
+          <div className="rounded-button border border-line bg-cream p-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-ink">
               <ShieldCheck className="size-4 text-brand" strokeWidth={1.8} aria-hidden />
-              Admin-friendly
+              {behindCount} need attention
             </div>
-            <p className="mt-1 text-xs leading-5 text-ink-soft">
-              Clear progress data without extra noise.
-            </p>
           </div>
-          <div className="rounded-button border border-white/70 bg-white/70 p-3">
+          <div className="rounded-button border border-line bg-cream p-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-ink">
               <BookOpenCheck className="size-4 text-brand" strokeWidth={1.8} aria-hidden />
               {students.length} students
             </div>
-            <p className="mt-1 text-xs leading-5 text-ink-soft">
-              Practice status and homework in one place.
-            </p>
           </div>
-          <div className="rounded-button border border-white/70 bg-white/70 p-3">
+          <div className="rounded-button border border-line bg-cream p-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-ink">
               <ClipboardList className="size-4 text-brand" strokeWidth={1.8} aria-hidden />
               {assignments.length} assignments
             </div>
-            <p className="mt-1 text-xs leading-5 text-ink-soft">
-              Due dates, goals, and completion at a glance.
-            </p>
           </div>
         </div>
       </Card>
@@ -184,7 +169,7 @@ export default function TeacherPage() {
 
       {/* Join code */}
       {activeClass && (
-        <Card className="grid gap-5 overflow-hidden border-brand/20 bg-gradient-to-br from-brand to-brand-dark text-white sm:grid-cols-[1fr_auto] sm:items-center">
+        <Card className="grid gap-4 border-brand/20 bg-brand text-white sm:grid-cols-[1fr_auto] sm:items-center">
           <div className="flex items-start gap-4">
             <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white/20 text-white ring-1 ring-white/30">
               <KeyRound className="size-6" strokeWidth={1.8} aria-hidden />
@@ -202,14 +187,13 @@ export default function TeacherPage() {
             </div>
           </div>
           <div className="rounded-card border border-white/20 bg-white/15 p-4 text-sm text-white/85">
-            Students enter the code on the Homework page. Their assignment view
-            updates automatically after joining {activeClass.name}.
+            Give this to students.
           </div>
         </Card>
       )}
 
       {/* Class overview cards */}
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
           label="Avg speed"
           value={stats.averageWpm}
@@ -250,13 +234,6 @@ export default function TeacherPage() {
           detail="Active goals"
         />
         <StatCard
-          label="Practice"
-          value={`${practiceHours}h`}
-          icon={Clock3}
-          tone="info"
-          detail="Total class time"
-        />
-        <StatCard
           label="Shortcut mastery"
           value={`${stats.averageShortcutMasteryPct}%`}
           icon={Command}
@@ -264,57 +241,15 @@ export default function TeacherPage() {
           detail="Comfortable or mastered"
           progress={stats.averageShortcutMasteryPct}
         />
-        <StatCard
-          label="Shortcut reaction"
-          value={(stats.averageShortcutReactionMs / 1000).toFixed(1)}
-          unit="s"
-          icon={Clock3}
-          tone="neutral"
-          detail="Class average"
-          progress={Math.max(
-            0,
-            100 - (stats.averageShortcutReactionMs / 2600) * 100,
-          )}
-        />
       </section>
-
-      <Card className="border-brand/15 bg-cream">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
-              Keyboard shortcuts
-            </p>
-            <h2 className="mt-1 text-xl font-bold tracking-tight text-ink">
-              Most-missed shortcuts
-            </h2>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {stats.mostMissedShortcuts.map((shortcutId) => (
-              <span
-                key={shortcutId}
-                className="rounded-button border border-line bg-white px-3 py-2 text-sm font-semibold text-ink-soft"
-              >
-                {shortcutLabel(shortcutId)}
-              </span>
-            ))}
-          </div>
-        </div>
-      </Card>
 
       {/* Assignments */}
       <section className="space-y-4 border-t border-line pt-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
-              Classroom goals
-            </p>
             <h2 className="mt-1 text-2xl font-bold tracking-tight text-ink">
               Assignments
             </h2>
-            <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-soft">
-              Set clear goals for level progress, speed, accuracy, practice
-              time, or Python typing.
-            </p>
           </div>
           <Button
             size="sm"
@@ -362,30 +297,6 @@ export default function TeacherPage() {
         />
       </section>
 
-      {/* Per-student summaries */}
-      <section className="space-y-4 border-t border-line pt-6">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
-            Quick notes
-          </p>
-          <h2 className="mt-1 text-2xl font-bold tracking-tight text-ink">
-            Student summaries
-          </h2>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {students.map((s) => (
-            <Card key={s.id} className="flex gap-3 hover:border-brand/20 hover:shadow-[0_10px_26px_rgba(88,64,38,0.08)]">
-              <span
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-tint text-xs font-bold text-brand-dark"
-                aria-hidden
-              >
-                {s.avatar}
-              </span>
-              <p className="text-sm text-ink-soft">{summarizeStudent(s)}</p>
-            </Card>
-          ))}
-        </div>
-      </section>
     </div>
   );
 }

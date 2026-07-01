@@ -21,11 +21,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh flex-col lg:flex-row">
       {/* Mobile/tablet top bar */}
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-surface/90 px-4 py-3 shadow-[0_1px_10px_rgba(88,64,38,0.05)] backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-20 flex items-center justify-between border-b border-line bg-surface/95 px-4 py-3 backdrop-blur lg:hidden">
         <Brand />
         <Link
           href="/settings"
-          className="flex items-center gap-2 rounded-full border border-line bg-cream px-3 py-1.5 text-sm font-semibold text-ink-soft shadow-[0_1px_2px_rgba(88,64,38,0.05)] no-select"
+          className="flex items-center gap-2 rounded-full border border-line bg-white px-3 py-1.5 text-sm font-semibold text-ink-soft no-select"
         >
           <DeviceIcon className="size-4" strokeWidth={1.8} aria-hidden />
           {info.label}
@@ -33,7 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </header>
 
       {/* Desktop / Chromebook sidebar */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-line bg-surface/85 px-4 py-6 shadow-[1px_0_18px_rgba(88,64,38,0.05)] backdrop-blur lg:flex">
+      <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line bg-surface px-4 py-6 lg:flex">
         <Brand className="px-2" />
         <nav className="mt-8 flex flex-1 flex-col gap-1">
           {navItems.map((item) => {
@@ -46,7 +46,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 className={cn(
                   "flex items-center gap-3 rounded-button px-3 py-3 text-sm font-semibold transition-colors no-select",
                   active
-                    ? "bg-brand-tint text-brand-dark shadow-[inset_3px_0_0_var(--color-brand)]"
+                    ? "bg-brand-tint text-brand-dark"
                     : "text-ink-soft hover:bg-cream hover:text-ink",
                 )}
               >
@@ -57,7 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </nav>
         {profile && (
-          <div className="rounded-button border border-line bg-white/70 px-3 py-3 text-sm">
+          <div className="rounded-button border border-line bg-white px-3 py-3 text-sm">
             <p className="truncate font-semibold text-ink">{profile.fullName}</p>
             <p className="mt-0.5 text-xs capitalize text-ink-faint">
               {profile.role}
@@ -66,16 +66,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         )}
         <Link
           href="/settings"
-          className="mt-4 flex items-center gap-3 rounded-button border border-line bg-cream px-3 py-3 text-sm shadow-[0_1px_2px_rgba(88,64,38,0.05)] no-select"
+          className="mt-4 flex items-center gap-3 rounded-button border border-line bg-white px-3 py-3 text-sm no-select"
         >
           <span className="flex size-9 items-center justify-center rounded-full bg-surface-muted text-ink-soft" aria-hidden>
             <DeviceIcon className="size-[18px]" strokeWidth={1.8} />
           </span>
           <span className="min-w-0">
             <span className="block font-semibold text-ink">{info.label}</span>
-            <span className="block truncate text-xs text-ink-faint">
-              Tap to change device
-            </span>
+            <span className="block truncate text-xs text-ink-faint">Device</span>
           </span>
         </Link>
         <button
@@ -90,13 +88,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Main content */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-10 lg:pb-12 lg:pt-10">
+        <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pb-12 lg:pt-8">
           {children}
         </main>
       </div>
 
       {/* Mobile/tablet bottom tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch justify-around border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_18px_rgba(88,64,38,0.08)] backdrop-blur lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex items-stretch justify-around border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden">
         {navItems.map((item) => {
           const active = isActive(item.href, pathname);
           return (

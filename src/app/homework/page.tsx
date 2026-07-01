@@ -88,7 +88,7 @@ export default function HomeworkPage() {
             </Button>
           </form>
           <p className="rounded-button bg-white/70 px-3 py-2 text-center text-xs text-ink-faint">
-            Demo code: <span className="font-bold text-ink-soft">SPEED-6021</span>
+            Ask your teacher for your class code.
           </p>
         </Card>
       </div>

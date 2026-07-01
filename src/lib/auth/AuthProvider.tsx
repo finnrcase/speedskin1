@@ -43,52 +43,36 @@ interface AuthContextValue {
   signUpWithEmail: (input: SignUpInput) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   completeRoleOnboarding: (role: UserRole, fullName?: string) => Promise<void>;
-  /** Enter a local demo session (used when Supabase is not configured). */
-  signInAsDemo: (role: UserRole, fullName?: string) => void;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<UserProfile | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-const DEMO_PROFILE_KEY = "speedskin:demo-profile";
-
-function demoNameForRole(role: UserRole) {
-  if (role === "teacher") return "Ms. Rivera";
-  if (role === "admin") return "Site Admin";
-  return "Jordan";
-}
-
-function demoProfile(role: UserRole, fullName?: string): UserProfile {
-  const now = new Date().toISOString();
-  return {
-    id: `demo-${role}`,
-    userId: `demo-${role}`,
-    email: `demo-${role}@speedskin.app`,
-    fullName: fullName?.trim() || demoNameForRole(role),
-    role,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
+const PROFILE_COLUMNS =
+  "id,user_id,email,full_name,avatar_url,role,created_at,updated_at,last_login";
 
 function profileFromRow(row: {
   id: string;
-  user_id: string;
+  user_id: string | null;
   email: string;
   full_name: string;
+  avatar_url: string | null;
   role: UserRole | null;
   created_at: string;
   updated_at: string;
+  last_login: string | null;
 }): UserProfile {
   return {
     id: row.id,
-    userId: row.user_id,
+    userId: row.user_id ?? row.id,
     email: row.email,
     fullName: row.full_name,
+    avatarUrl: row.avatar_url,
     role: row.role,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    lastLogin: row.last_login,
   };
 }
 
@@ -100,6 +84,22 @@ function fallbackFullName(user: User | null) {
         ? user.user_metadata.name
         : null;
   return metadataName ?? user?.email?.split("@")[0] ?? "SpeedSkin learner";
+}
+
+/** Human-friendly copy for the common Supabase auth error messages. */
+function friendlyAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login credentials"))
+    return "That email or password is incorrect.";
+  if (m.includes("already registered") || m.includes("already been registered"))
+    return "An account with that email already exists. Try logging in.";
+  if (m.includes("email not confirmed"))
+    return "Please confirm your email, then log in.";
+  if (m.includes("password") && m.includes("6"))
+    return "Password must be at least 6 characters.";
+  if (m.includes("network") || m.includes("fetch"))
+    return "Network problem — check your connection and try again.";
+  return message;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const user = userData.user;
     const { data, error } = await supabase
       .from("profiles")
-      .select("id,user_id,email,full_name,role,created_at,updated_at")
+      .select(PROFILE_COLUMNS)
       .eq("id", user.id)
       .maybeSingle();
 
@@ -145,7 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           full_name: fallbackFullName(user),
           role: null,
         })
-        .select("id,user_id,email,full_name,role,created_at,updated_at")
+        .select(PROFILE_COLUMNS)
         .single();
 
       if (insertError) {
@@ -166,24 +166,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return nextProfile;
   }, [supabase]);
 
-  // Demo mode: when Supabase isn't configured, restore any saved local demo
-  // session so the app is usable (and reloads keep you signed in).
-  useEffect(() => {
-    if (supabase) return;
-    try {
-      const raw = window.localStorage.getItem(DEMO_PROFILE_KEY);
-      if (!raw) return;
-      const saved = JSON.parse(raw) as UserProfile;
-      if (saved?.role) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setProfile(saved);
-        setStatus("authenticated");
-      }
-    } catch {
-      // Ignore corrupt storage; stay on the landing screen.
-    }
-  }, [supabase]);
-
   useEffect(() => {
     if (!supabase) {
       return;
@@ -193,30 +175,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     supabase.auth.getSession().then(
       async ({ data }: { data: { session: Session | null } }) => {
-      if (!active) return;
-      setSession(data.session);
-      if (data.session) {
-        await refreshProfile();
-      } else {
-        setProfile(null);
-        setStatus("signed-out");
-      }
-    });
+        if (!active) return;
+        setSession(data.session);
+        if (data.session) {
+          await refreshProfile();
+        } else {
+          setProfile(null);
+          setStatus("signed-out");
+        }
+      },
+    );
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      (_event: AuthChangeEvent, nextSession: Session | null) => {
-      setSession(nextSession);
-      setAuthError(null);
-      setAuthMessage(null);
-      if (!nextSession) {
-        setProfile(null);
-        setStatus("signed-out");
-        return;
-      }
-      void refreshProfile();
-    });
+      (event: AuthChangeEvent, nextSession: Session | null) => {
+        setSession(nextSession);
+        setAuthError(null);
+        setAuthMessage(null);
+        if (!nextSession) {
+          setProfile(null);
+          setStatus("signed-out");
+          return;
+        }
+        // Record the login timestamp (best-effort) once per sign-in.
+        if (event === "SIGNED_IN" && nextSession.user) {
+          void supabase
+            .from("profiles")
+            .update({ last_login: new Date().toISOString() })
+            .eq("id", nextSession.user.id);
+        }
+        void refreshProfile();
+      },
+    );
 
     return () => {
       active = false;
@@ -234,7 +225,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
       });
       if (error) {
-        setAuthError(error.message);
+        setAuthError(friendlyAuthError(error.message));
         return;
       }
       await refreshProfile();
@@ -259,17 +250,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       if (error) {
-        setAuthError(error.message);
+        setAuthError(friendlyAuthError(error.message));
         return;
-      }
-
-      if (data.user && data.session) {
-        await supabase.from("profiles").upsert({
-          id: data.user.id,
-          email: data.user.email ?? email,
-          full_name: fullName,
-          role,
-        });
       }
 
       if (!data.session) {
@@ -292,7 +274,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     });
-    if (error) setAuthError(error.message);
+    if (error) setAuthError(friendlyAuthError(error.message));
   }, [supabase]);
 
   const completeRoleOnboarding = useCallback(
@@ -307,11 +289,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           full_name: fullName?.trim() || fallbackFullName(session.user),
           role,
         })
-        .select("id,user_id,email,full_name,role,created_at,updated_at")
+        .select(PROFILE_COLUMNS)
         .single();
 
       if (error) {
-        setAuthError(error.message);
+        setAuthError(friendlyAuthError(error.message));
         return;
       }
 
@@ -322,31 +304,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [session, supabase],
   );
 
-  const signInAsDemo = useCallback((role: UserRole, fullName?: string) => {
-    const nextProfile = demoProfile(role, fullName);
-    try {
-      window.localStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify(nextProfile));
-    } catch {
-      // Persistence is best-effort; the session still works for this visit.
-    }
-    setAuthError(null);
-    setAuthMessage(null);
-    setProfile(nextProfile);
-    setStatus("authenticated");
-  }, []);
-
   const signOut = useCallback(async () => {
-    try {
-      window.localStorage.removeItem(DEMO_PROFILE_KEY);
-    } catch {
-      // ignore
-    }
-    if (!supabase) {
-      setSession(null);
-      setProfile(null);
-      setStatus("unconfigured");
-      return;
-    }
+    if (!supabase) return;
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
@@ -366,7 +325,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUpWithEmail,
       signInWithGoogle,
       completeRoleOnboarding,
-      signInAsDemo,
       signOut,
       refreshProfile,
     }),
@@ -377,7 +335,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       refreshProfile,
       session,
-      signInAsDemo,
       signInWithEmail,
       signInWithGoogle,
       signOut,

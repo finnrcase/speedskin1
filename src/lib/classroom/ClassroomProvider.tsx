@@ -35,8 +35,6 @@ import type {
   ShortcutSkillProgressRow,
 } from "@/lib/supabase/types";
 
-const STORAGE_KEY = "speedskin:classroom";
-
 export type NewAssignmentInput = Omit<Assignment, "id">;
 
 interface Deltas {
@@ -290,43 +288,13 @@ export function ClassroomProvider({ children }: { children: React.ReactNode }) {
   const deltasRef = useRef(deltas);
 
   useEffect(() => {
-    const id = window.setTimeout(() => {
-      try {
-        const raw = window.localStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed = JSON.parse(raw) as Deltas;
-          const normalized: Deltas = {
-            ...EMPTY_DELTAS,
-            ...parsed,
-            extraClasses: Array.isArray(parsed.extraClasses)
-              ? parsed.extraClasses
-              : [],
-            extraAssignments: Array.isArray(parsed.extraAssignments)
-              ? parsed.extraAssignments
-              : [],
-            joinedStudent: parsed.joinedStudent
-              ? normalizeStudent(parsed.joinedStudent)
-              : null,
-          };
-          deltasRef.current = normalized;
-          setDeltas(normalized);
-        }
-      } catch {
-        // Ignore corrupt/unavailable storage; fall back to seed data.
-      }
-      setReady(true);
-    }, 0);
+    const id = window.setTimeout(() => setReady(true), 0);
     return () => window.clearTimeout(id);
   }, []);
 
   const commit = useCallback((next: Deltas) => {
     deltasRef.current = next;
     setDeltas(next);
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // Persistence is best-effort.
-    }
   }, []);
 
   const loadRemote = useCallback(async () => {
@@ -402,7 +370,9 @@ export function ClassroomProvider({ children }: { children: React.ReactNode }) {
     return undefined;
   }, [loadRemote, profile, status, supabase]);
 
-  const usingRemote = Boolean(supabase && status === "authenticated" && profile);
+  const usingRemote = Boolean(
+    supabase && status === "authenticated" && profile,
+  );
 
   const localClasses = useMemo(
     () => [...SEED_CLASSES, ...deltas.extraClasses],

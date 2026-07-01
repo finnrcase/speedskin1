@@ -5,7 +5,7 @@ import {
   GraduationCap,
   House,
   Settings,
-  Trophy,
+  ChartNoAxesColumnIncreasing,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/lib/data/types";
@@ -19,22 +19,27 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", Icon: House, roles: ["student"] },
-  { href: "/courses", label: "Courses", Icon: BookOpen, roles: ["student"] },
+  { href: "/courses", label: "Learn", Icon: BookOpen, roles: ["student"] },
   {
     href: "/homework",
     label: "Homework",
     Icon: ClipboardCheck,
     roles: ["student"],
   },
-  { href: "/achievements", label: "Awards", Icon: Trophy, roles: ["student"] },
+  {
+    href: "/achievements",
+    label: "Progress",
+    Icon: ChartNoAxesColumnIncreasing,
+    roles: ["student"],
+  },
   {
     href: "/teacher",
-    label: "Teacher",
+    label: "Dashboard",
     Icon: GraduationCap,
-    roles: ["teacher", "admin"],
+    roles: ["teacher"],
   },
   { href: "/admin", label: "Admin", Icon: ShieldCheck, roles: ["admin"] },
-  { href: "/settings", label: "Settings", Icon: Settings },
+  { href: "/settings", label: "Profile", Icon: Settings },
 ];
 
 /** Course paths roll up under the single "Courses" nav item. */
