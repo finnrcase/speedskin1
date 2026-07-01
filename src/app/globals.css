@@ -1,0 +1,247 @@
+@import "tailwindcss";
+
+/*
+  SpeedSkin Typing Academy theme.
+  Light, school-friendly palette with an orange accent. Tokens are exposed to
+  Tailwind via @theme so utilities like `bg-brand`, `text-ink`, `rounded-card`
+  are available throughout the app.
+*/
+@theme {
+  /* Brand */
+  --color-brand: #f97316;
+  --color-brand-dark: #ea580c;
+  --color-brand-light: #fed7aa;
+  --color-brand-tint: #fff7ed;
+  --color-brand-wash: #ffedd5;
+  --color-cream: #fffaf3;
+  --color-gold: #f59e0b;
+  --color-gold-tint: #fffbeb;
+
+  /* Surfaces & ink — calmer, more neutral premium base */
+  --color-canvas: #faf8f4;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f5f4f1;
+  --color-ink: #18181b;
+  --color-ink-soft: #52525b;
+  --color-ink-faint: #71717a;
+  --color-line: #e9e5dd;
+
+  /* Status */
+  --color-success: #15803d;
+  --color-success-light: #f0fdf4;
+  --color-danger: #b91c1c;
+  --color-danger-light: #fef2f2;
+  --color-info: #475569;
+  --color-info-light: #f1f5f9;
+
+  /* Typography */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+
+  /* Radii */
+  --radius-card: 0.75rem;
+  --radius-button: 0.625rem;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background:
+    radial-gradient(120% 75% at 50% -10%, #fff4e6 0, rgba(255, 244, 230, 0) 44%),
+    linear-gradient(180deg, var(--color-canvas) 0, #f7f7f5 720px);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/*
+  Ambient layers kept deliberately quiet for a calm, premium feel: a whisper of
+  neutral paper texture up top and a soft warm glow — no hard patterns/stripes.
+*/
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(120, 113, 108, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 113, 108, 0.03) 1px, transparent 1px);
+  background-size: 52px 52px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.55) 0, transparent 420px);
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: -18% -10% auto -10%;
+  z-index: -1;
+  height: 32rem;
+  pointer-events: none;
+  background:
+    radial-gradient(58% 70% at 84% 0%, rgba(249, 115, 22, 0.07), transparent 70%),
+    radial-gradient(48% 60% at 12% 6%, rgba(245, 158, 11, 0.045), transparent 72%);
+}
+
+.warm-panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 247, 237, 0.96), rgba(255, 255, 255, 0.98) 48%, rgba(255, 251, 235, 0.92));
+}
+
+.hero-panel {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 237, 213, 0.96), rgba(255, 250, 243, 0.98) 42%, rgba(255, 255, 255, 0.94)),
+    linear-gradient(90deg, rgba(249, 115, 22, 0.16), transparent 55%);
+}
+
+.hero-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(249, 115, 22, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(249, 115, 22, 0.035) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(90deg, transparent 0, #000 50%, #000 100%);
+}
+
+.hero-panel::after {
+  content: "";
+  position: absolute;
+  right: -5rem;
+  bottom: -6rem;
+  width: min(32rem, 70%);
+  height: 18rem;
+  pointer-events: none;
+  background: radial-gradient(60% 70% at 70% 80%, rgba(249, 115, 22, 0.1), transparent 72%);
+  opacity: 0.7;
+}
+
+.hero-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.keyboard-pattern {
+  background-image:
+    linear-gradient(rgba(120, 113, 108, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 113, 108, 0.05) 1px, transparent 1px);
+  background-size: 48px 34px;
+}
+
+.journey-line {
+  background:
+    linear-gradient(90deg, rgba(21, 128, 61, 0.45), rgba(249, 115, 22, 0.55), rgba(231, 222, 210, 0.72)),
+    repeating-linear-gradient(90deg, transparent 0 22px, rgba(255, 255, 255, 0.58) 22px 24px);
+}
+
+.warm-panel::after {
+  content: "";
+  position: absolute;
+  right: -5rem;
+  bottom: -4rem;
+  width: min(24rem, 70%);
+  height: 12rem;
+  pointer-events: none;
+  background: radial-gradient(58% 70% at 75% 80%, rgba(249, 115, 22, 0.08), transparent 72%);
+  opacity: 0.8;
+}
+
+.warm-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.dot-field {
+  background-image: radial-gradient(circle, rgba(249, 115, 22, 0.1) 1.2px, transparent 1.2px);
+  background-size: 18px 18px;
+}
+
+.progress-rail {
+  background:
+    linear-gradient(90deg, rgba(249, 115, 22, 0.2), rgba(245, 158, 11, 0.12)),
+    repeating-linear-gradient(90deg, transparent 0 18px, rgba(255, 255, 255, 0.5) 18px 20px);
+}
+
+/* Keep the app from selecting/zooming oddly inside the typing surface. */
+.no-select {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Slow fade-in used when a "stuck" hint key is revealed. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 700ms ease-out both;
+}
+
+/*
+  Additive premium interaction utilities (design-system standards). Components
+  can opt into these for consistent microinteractions without bespoke classes.
+*/
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Tasteful page/section entrance. */
+.animate-rise-in {
+  animation: rise-in 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Standard interactive surface: lift on hover, settle on press. */
+.interactive {
+  transition:
+    transform 160ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+.interactive:hover {
+  transform: translateY(-2px);
+}
+.interactive:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* Consistent, accessible focus ring for custom interactive elements. */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px var(--color-surface),
+    0 0 0 4px color-mix(in srgb, var(--color-brand) 55%, transparent);
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
