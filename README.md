@@ -151,27 +151,76 @@ npm run start
 
 ## Deployment
 
-Vercel is the expected deployment target.
+Vercel is the deployment target; Supabase is the backend
+(project `speedskin`, ref `xuuxwqrwvmaccxmjwwjk`).
 
-1. Push this repository to GitHub.
-2. Import the repository in Vercel.
-3. Use the default Next.js settings:
-   - Install command: `npm install`
-   - Build command: `npm run build`
-   - Output directory: default
-4. Add the public Supabase variables in Vercel project settings.
-5. Add the deployed `/auth/callback` URL to Supabase and Google OAuth redirect allow lists.
-6. Deploy.
+### 1. Environment variables
 
-Before sharing the app with real users, verify:
+Set these in **both** `.env.local` (dev) and **Vercel → Project → Settings →
+Environment Variables** (Production + Preview). Both are public client keys.
+
+| Variable | Value |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://xuuxwqrwvmaccxmjwwjk.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → Project Settings → API → `anon`/publishable key |
+
+After changing env vars in Vercel, **redeploy** (env changes don't apply to
+existing builds).
+
+### 2. Database
+
+The schema lives in `supabase/migrations/001…004`. Apply it with the Supabase
+CLI (`supabase db push`) or by pasting each file into the SQL editor in order.
+
+### 3. Google OAuth setup
+
+Two different callback URLs are involved — don't mix them up:
+
+**Google Cloud Console** (console.cloud.google.com):
+1. APIs & Services → OAuth consent screen → External → fill app name + support
+   email; add scopes `email`, `profile`, `openid`; publish.
+2. Credentials → Create credentials → OAuth client ID → **Web application**.
+3. **Authorized JavaScript origins**: `https://<your-domain>` and
+   `http://localhost:3000`.
+4. **Authorized redirect URI** (this is Supabase's callback, not the app's):
+   `https://xuuxwqrwvmaccxmjwwjk.supabase.co/auth/v1/callback`
+5. Copy the **Client ID** and **Client Secret**.
+
+**Supabase dashboard**:
+1. Authentication → Providers → **Google** → enable, paste Client ID + Secret.
+2. Authentication → URL Configuration:
+   - **Site URL**: `https://<your-domain>`
+   - **Redirect URLs** (allow list, this is the *app's* callback):
+     `https://<your-domain>/auth/callback` and
+     `http://localhost:3000/auth/callback`
+
+### 4. Vercel
+
+Default Next.js settings (`npm install` / `npm run build`). Add the env vars
+from step 1, then deploy. Confirm the deployed landing page shows the login
+screen (not "Supabase is not configured") — that confirms env vars are live.
+
+### 5. Pre-launch checklist (before real users)
+
+- **Remove the seed/demo accounts and data** (see `docs/DEMO.md`):
+  ```sql
+  delete from auth.users where email like '%@speedskin.dev';
+  -- cascades to profiles, memberships, assignments, and progress
+  ```
+- **Re-enable email confirmation**: Supabase → Authentication → Providers →
+  Email → turn on **Confirm email** (it may be off for demoing signups).
+- Rotate keys if `docs/DEMO.md` was shared.
+- Re-run `get_advisors` (security + performance) after any schema change.
+
+### Verify before sharing
 
 ```bash
-npm run lint
-npm run test
-npm run build
+npm run lint && npm run test && npm run build
 ```
 
-Then test the student, teacher, and admin flows with real Supabase accounts.
+Then click through the student, teacher, and admin flows on the deployed URL
+with real accounts (browser-only — email/password + Google can't be exercised
+from CI).
 
 ## Repository Hygiene
 
