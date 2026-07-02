@@ -93,10 +93,12 @@ export interface Student {
   wpm: number;
   accuracy: number;
   lessonsCompleted: number;
+  completedLessonIds?: string[];
   /** Python-track lessons completed (out of PYTHON_LESSON_COUNT). */
   pythonLessonsCompleted: number;
   /** Keyboard shortcut lessons completed (out of SHORTCUT_LESSON_COUNT). */
   shortcutLessonsCompleted: number;
+  completedShortcutLessonIds?: string[];
   /** Percentage of shortcut skills in Comfortable or Mastered states. */
   shortcutMasteryPct: number;
   /** Average shortcut reaction time in milliseconds. */
@@ -119,8 +121,10 @@ export interface CurrentUser {
   level: number;
   streakDays: number;
   lessonsCompleted: number;
+  completedLessonIds: string[];
   pythonLessonsCompleted: number;
   shortcutLessonsCompleted: number;
+  completedShortcutLessonIds: string[];
   shortcutMasteryPct: number;
   shortcutAverageReactionMs: number;
   totalLessons: number;
@@ -221,7 +225,18 @@ export interface Classroom {
   teacherId: string;
   /** ISO date string. */
   createdAt: string;
+  /** Archived classrooms are hidden from active teaching flows. */
+  archivedAt?: string | null;
 }
+
+export type AssignmentTargetMode =
+  | "individual"
+  | "multiple"
+  | "range"
+  | "unit"
+  | "randomized"
+  | "checkpoint"
+  | "category";
 
 export interface Assignment {
   id: string;
@@ -229,6 +244,9 @@ export interface Assignment {
   title: string;
   /** ISO date string. */
   dueDate: string;
+  targetMode?: AssignmentTargetMode;
+  lessonIds?: string[];
+  targetLabel?: string;
   /** Optional requirements; an assignment needs at least one. */
   requiredLevel?: number;
   requiredTrack?: LessonTrack;
@@ -261,8 +279,10 @@ export interface EvalContext {
   wpm: number;
   accuracy: number;
   practiceMinutes: number;
+  completedLessonIds?: string[];
   pythonCompleted: number;
   shortcutCompleted: number;
+  completedShortcutLessonIds?: string[];
   shortcutMasteryPct: number;
 }
 

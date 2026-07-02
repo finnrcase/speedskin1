@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Globe2, LogIn, UserPlus } from "lucide-react";
+import { Globe2, LogIn, Sparkles, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthProvider";
@@ -36,6 +36,7 @@ export function AuthLanding() {
     authMessage,
     signInWithEmail,
     signInWithGoogle,
+    signInAsDemo,
     signUpWithEmail,
     status,
   } = useAuth();
@@ -102,6 +103,48 @@ export function AuthLanding() {
           </div>
 
           <div className="mt-5 grid gap-3">
+            <div className="space-y-3 rounded-card border border-line bg-cream p-4">
+              <div className="flex items-center gap-2">
+                <Sparkles className="size-4 text-brand" strokeWidth={1.8} aria-hidden />
+                <p className="text-sm font-bold text-ink">Demo mode</p>
+              </div>
+              <p className="text-xs text-ink-soft">
+                Test the full classroom workflow locally.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {roleOptions.map((option) => (
+                  <button
+                    key={option.role}
+                    type="button"
+                    onClick={() => setRole(option.role)}
+                    aria-pressed={role === option.role}
+                    className={cn(
+                      "rounded-button border px-3 py-2 text-center text-sm font-bold transition",
+                      role === option.role
+                        ? "border-brand/40 bg-white text-ink ring-2 ring-brand/10"
+                        : "border-line bg-white/70 text-ink-soft hover:border-brand/25",
+                    )}
+                  >
+                    {option.title}
+                  </button>
+                ))}
+              </div>
+              <Button
+                type="button"
+                size="lg"
+                className="w-full justify-center"
+                onClick={() => {
+                  signInAsDemo(role, fullName);
+                  window.location.assign(
+                    role === "teacher" ? "/teacher" : role === "admin" ? "/admin" : "/",
+                  );
+                }}
+              >
+                <Sparkles className="size-4" strokeWidth={1.8} aria-hidden />
+                Explore the demo
+              </Button>
+            </div>
+
             <Button
               type="button"
               variant="outline"

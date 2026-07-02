@@ -1,4 +1,5 @@
-import { CalendarDays, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { CalendarDays, CheckCircle2, Eye } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -20,6 +21,17 @@ function formatDueDate(iso: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+function assignmentHref(assignment: Assignment): string {
+  const firstLessonId = assignment.lessonIds?.[0];
+  if (assignment.requiredTrack === "shortcuts") {
+    return `/shortcuts/${firstLessonId ?? "shortcut-l1-copy"}`;
+  }
+  if (assignment.requiredTrack === "python") {
+    return `/lesson/${firstLessonId ?? "py-strings"}`;
+  }
+  return `/lesson/${firstLessonId ?? "l1-home-row-letters"}`;
 }
 
 export function AssignmentCompletionTable({
@@ -61,6 +73,13 @@ export function AssignmentCompletionTable({
               </Badge>
             </div>
             <RequirementBadges assignment={a} />
+            <Link
+              href={assignmentHref(a)}
+              className="inline-flex items-center gap-2 rounded-button border border-line bg-white px-3 py-2 text-sm font-bold text-ink-soft hover:border-brand/25 hover:text-ink"
+            >
+              <Eye className="size-4" strokeWidth={1.8} aria-hidden />
+              Preview Assignment
+            </Link>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.12em] text-ink-faint">
                 <span>Class completion</span>

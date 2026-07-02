@@ -8,6 +8,8 @@ import {
 } from "@/lib/supabase/config";
 
 const PUBLIC_PATHS = ["/auth", "/onboarding"];
+const DEMO_ROLE_COOKIE = "speedskin-demo-role";
+const DEMO_ROLES = new Set(["student", "teacher", "admin"]);
 
 function isPublicPath(pathname: string) {
   return (
@@ -21,6 +23,11 @@ export async function proxy(request: NextRequest) {
   const sessionResponse = await updateSession(request);
 
   if (!isSupabaseConfigured || isPublicPath(request.nextUrl.pathname)) {
+    return sessionResponse;
+  }
+
+  const demoRole = request.cookies.get(DEMO_ROLE_COOKIE)?.value;
+  if (demoRole && DEMO_ROLES.has(demoRole)) {
     return sessionResponse;
   }
 

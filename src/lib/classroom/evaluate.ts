@@ -18,8 +18,14 @@ export function evalContextFromStudent(s: Student): EvalContext {
     wpm: numberOrZero(s.wpm),
     accuracy: numberOrZero(s.accuracy),
     practiceMinutes: numberOrZero(s.practiceMinutes),
+    completedLessonIds: Array.isArray(s.completedLessonIds)
+      ? s.completedLessonIds
+      : [],
     pythonCompleted: numberOrZero(s.pythonLessonsCompleted),
     shortcutCompleted: numberOrZero(s.shortcutLessonsCompleted),
+    completedShortcutLessonIds: Array.isArray(s.completedShortcutLessonIds)
+      ? s.completedShortcutLessonIds
+      : [],
     shortcutMasteryPct: numberOrZero(s.shortcutMasteryPct),
   };
 }
@@ -30,8 +36,10 @@ export function evalContextFromUser(u: CurrentUser): EvalContext {
     wpm: u.averageWpm,
     accuracy: u.averageAccuracy,
     practiceMinutes: u.minutesPracticed,
+    completedLessonIds: u.completedLessonIds,
     pythonCompleted: u.pythonLessonsCompleted,
     shortcutCompleted: u.shortcutLessonsCompleted,
+    completedShortcutLessonIds: u.completedShortcutLessonIds,
     shortcutMasteryPct: u.shortcutMasteryPct,
   };
 }
@@ -42,6 +50,26 @@ export function evaluateAssignment(
   a: Assignment,
 ): AssignmentEvaluation {
   const criteria: AssignmentEvaluation["criteria"] = [];
+  const lessonIds = a.lessonIds ?? [];
+
+  if (lessonIds.length > 0) {
+    const completedIds =
+      a.requiredTrack === "shortcuts"
+        ? new Set(ctx.completedShortcutLessonIds ?? [])
+        : new Set(ctx.completedLessonIds ?? []);
+    const completed = lessonIds.filter((id) => completedIds.has(id)).length;
+    criteria.push({
+      label:
+        a.requiredTrack === "shortcuts"
+          ? "Shortcut lessons"
+          : a.requiredTrack === "python"
+            ? "Coding lessons"
+            : "Typing lessons",
+      target: String(lessonIds.length),
+      actual: String(completed),
+      met: completed >= lessonIds.length,
+    });
+  }
 
   if (a.requiredLevel !== undefined) {
     criteria.push({

@@ -39,6 +39,7 @@ export interface ClassroomRow {
   teacher_id: string;
   created_at: string;
   updated_at: string;
+  archived_at: string | null;
 }
 
 export interface ClassMembershipRow {
@@ -61,6 +62,9 @@ export interface AssignmentRow {
   min_python_lessons: number | null;
   min_shortcut_lessons: number | null;
   min_shortcut_mastery_pct: number | null;
+  target_mode: string | null;
+  lesson_ids: string[] | null;
+  target_label: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -181,6 +185,9 @@ export type Database = {
           min_python_lessons?: number | null;
           min_shortcut_lessons?: number | null;
           min_shortcut_mastery_pct?: number | null;
+          target_mode?: string | null;
+          lesson_ids?: string[] | null;
+          target_label?: string | null;
           created_by: string;
         }
       >;

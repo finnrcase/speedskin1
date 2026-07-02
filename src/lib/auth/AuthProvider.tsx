@@ -43,14 +43,49 @@ interface AuthContextValue {
   signUpWithEmail: (input: SignUpInput) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   completeRoleOnboarding: (role: UserRole, fullName?: string) => Promise<void>;
+  signInAsDemo: (role: UserRole, fullName?: string) => void;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<UserProfile | null>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const DEMO_PROFILE_KEY = "speedskin:demo-profile";
+const DEMO_ROLE_COOKIE = "speedskin-demo-role";
 
 const PROFILE_COLUMNS =
   "id,user_id,email,full_name,avatar_url,role,created_at,updated_at,last_login";
+
+function demoNameForRole(role: UserRole) {
+  if (role === "teacher") return "Casey Teacher";
+  if (role === "admin") return "Avery Admin";
+  return "Jordan Learner";
+}
+
+function demoProfile(role: UserRole, fullName?: string): UserProfile {
+  const now = new Date().toISOString();
+  return {
+    id: `demo-${role}`,
+    userId: `demo-${role}`,
+    email: `demo-${role}@speedskin.app`,
+    fullName: fullName?.trim() || demoNameForRole(role),
+    avatarUrl: null,
+    role,
+    createdAt: now,
+    updatedAt: now,
+    lastLogin: now,
+  };
+}
+
+function readDemoProfile(): UserProfile | null {
+  try {
+    const raw = window.localStorage.getItem(DEMO_PROFILE_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as UserProfile;
+    return saved?.id?.startsWith("demo-") && saved.role ? saved : null;
+  } catch {
+    return null;
+  }
+}
 
 function profileFromRow(row: {
   id: string;
@@ -167,9 +202,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   useEffect(() => {
+    const saved = readDemoProfile();
+    if (saved) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSession(null);
+      setProfile(saved);
+      setStatus("authenticated");
+    }
+  }, []);
+
+  useEffect(() => {
     if (!supabase) {
       return;
     }
+    if (readDemoProfile()) return;
 
     let active = true;
 
@@ -180,8 +226,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data.session) {
           await refreshProfile();
         } else {
-          setProfile(null);
-          setStatus("signed-out");
+          const saved = readDemoProfile();
+          if (saved) {
+            setProfile(saved);
+            setStatus("authenticated");
+          } else {
+            setProfile(null);
+            setStatus("signed-out");
+          }
         }
       },
     );
@@ -194,8 +246,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setAuthError(null);
         setAuthMessage(null);
         if (!nextSession) {
-          setProfile(null);
-          setStatus("signed-out");
+          const saved = readDemoProfile();
+          if (saved) {
+            setProfile(saved);
+            setStatus("authenticated");
+          } else {
+            setProfile(null);
+            setStatus("signed-out");
+          }
           return;
         }
         // Record the login timestamp (best-effort) once per sign-in.
@@ -304,12 +362,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [session, supabase],
   );
 
+  const signInAsDemo = useCallback((role: UserRole, fullName?: string) => {
+    const nextProfile = demoProfile(role, fullName);
+    try {
+      window.localStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify(nextProfile));
+      document.cookie = `${DEMO_ROLE_COOKIE}=${role}; path=/; max-age=604800; SameSite=Lax`;
+    } catch {
+      // Local demo persistence is best-effort.
+    }
+    setSession(null);
+    setAuthError(null);
+    setAuthMessage(null);
+    setProfile(nextProfile);
+    setStatus("authenticated");
+  }, []);
+
   const signOut = useCallback(async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    try {
+      window.localStorage.removeItem(DEMO_PROFILE_KEY);
+      document.cookie = `${DEMO_ROLE_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+    } catch {
+      // ignore
+    }
+    if (supabase) await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
-    setStatus("signed-out");
+    setStatus(supabase ? "signed-out" : "unconfigured");
   }, [supabase]);
 
   const value = useMemo<AuthContextValue>(
@@ -325,6 +403,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUpWithEmail,
       signInWithGoogle,
       completeRoleOnboarding,
+      signInAsDemo,
       signOut,
       refreshProfile,
     }),
@@ -335,6 +414,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       refreshProfile,
       session,
+      signInAsDemo,
       signInWithEmail,
       signInWithGoogle,
       signOut,

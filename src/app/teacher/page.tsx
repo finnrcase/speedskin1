@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Activity,
+  Archive,
   BookOpenCheck,
   ClipboardList,
   Command,
@@ -10,8 +11,10 @@ import {
   Gauge,
   KeyRound,
   Plus,
+  RefreshCcw,
   ShieldCheck,
   Target,
+  Trash2,
   Users,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -25,6 +28,7 @@ import { AssignmentCompletionTable } from "@/components/classroom/AssignmentComp
 import { AssignmentForm } from "@/components/classroom/AssignmentForm";
 import { buildRosterCsv } from "@/lib/csv";
 import { PYTHON_LESSON_COUNT, SHORTCUT_LESSON_COUNT } from "@/lib/data";
+import { shortcutLabel } from "@/lib/shortcuts/catalog";
 
 export default function TeacherPage() {
   const {
@@ -32,8 +36,12 @@ export default function TeacherPage() {
     teacher,
     studentsForClass,
     assignmentsForClass,
-    createClass,
-    createAssignment,
+  createClass,
+  createAssignment,
+  removeStudent,
+  archiveClass,
+  deleteClass,
+  regenerateJoinCode,
   } = useClassroom();
 
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -46,6 +54,8 @@ export default function TeacherPage() {
   const students = activeClassId ? studentsForClass(activeClassId) : [];
   const assignments = activeClassId ? assignmentsForClass(activeClassId) : [];
   const stats = computeClassStats(students);
+  const weakestKeys = [...new Set(students.flatMap((student) => student.weakKeys))].slice(0, 4);
+  const weakestShortcuts = stats.mostMissedShortcuts;
 
   const handleCreateClass = (e: React.FormEvent) => {
     e.preventDefault();
@@ -187,7 +197,35 @@ export default function TeacherPage() {
             </div>
           </div>
           <div className="rounded-card border border-white/20 bg-white/15 p-4 text-sm text-white/85">
-            Give this to students.
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => activeClass && regenerateJoinCode(activeClass.id)}
+              >
+                <RefreshCcw className="size-4" strokeWidth={1.8} aria-hidden />
+                Regenerate code
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => activeClass && archiveClass(activeClass.id)}
+              >
+                <Archive className="size-4" strokeWidth={1.8} aria-hidden />
+                Archive
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => activeClass && deleteClass(activeClass.id)}
+              >
+                <Trash2 className="size-4" strokeWidth={1.8} aria-hidden />
+                Delete
+              </Button>
+            </div>
           </div>
         </Card>
       )}
@@ -274,6 +312,34 @@ export default function TeacherPage() {
         <AssignmentCompletionTable assignments={assignments} students={students} />
       </section>
 
+      <section className="grid gap-3 border-t border-line pt-6 lg:grid-cols-3">
+        <Card className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
+            Students needing help
+          </p>
+          <p className="text-2xl font-bold text-ink">{behindCount}</p>
+          <p className="text-sm text-ink-soft">Based on accuracy and practice status.</p>
+        </Card>
+        <Card className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
+            Typing weak spots
+          </p>
+          <p className="text-sm font-semibold text-ink">
+            {weakestKeys.length ? weakestKeys.join(", ") : "No weak keys yet"}
+          </p>
+        </Card>
+        <Card className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
+            Shortcut weak spots
+          </p>
+          <p className="text-sm font-semibold text-ink">
+            {weakestShortcuts.length
+              ? weakestShortcuts.map(shortcutLabel).join(", ")
+              : "No missed shortcuts yet"}
+          </p>
+        </Card>
+      </section>
+
       {/* Student progress table */}
       <section className="space-y-4 border-t border-line pt-6">
         <div className="flex items-center justify-between gap-2">
@@ -294,6 +360,11 @@ export default function TeacherPage() {
           assignments={assignments}
           pythonTotal={PYTHON_LESSON_COUNT}
           shortcutTotal={SHORTCUT_LESSON_COUNT}
+          onRemoveStudent={
+            activeClassId
+              ? (studentId) => removeStudent(activeClassId, studentId)
+              : undefined
+          }
         />
       </section>
 

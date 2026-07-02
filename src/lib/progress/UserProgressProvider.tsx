@@ -61,6 +61,7 @@ interface UserProgressContextValue {
 }
 
 const UserProgressContext = createContext<UserProgressContextValue | null>(null);
+const LOCAL_PROGRESS_PREFIX = "speedskin:progress:";
 
 function initials(name: string) {
   return name
@@ -184,6 +185,8 @@ function deriveUser({
   const completedShortcuts = Object.values(shortcutLessonProgress).filter(
     (p) => p.status === "completed",
   );
+  const completedLessonIds = completedLessons.map((p) => p.lessonId);
+  const completedShortcutLessonIds = completedShortcuts.map((p) => p.lessonId);
   const wpmValues = completedLessons
     .map((p) => p.bestWpm)
     .filter((value): value is number => value !== null);
@@ -238,8 +241,10 @@ function deriveUser({
     level: highestCompletedLevel,
     streakDays: completedLessons.length ? 1 : 0,
     lessonsCompleted: completedLessons.length,
+    completedLessonIds,
     pythonLessonsCompleted: completedPython.length,
     shortcutLessonsCompleted: completedShortcuts.length,
+    completedShortcutLessonIds,
     shortcutMasteryPct,
     shortcutAverageReactionMs,
     totalLessons: lessons.length,
@@ -266,6 +271,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
   const [ready, setReady] = useState(false);
 
   const userId = profile?.id ?? "guest";
+  const isDemoProfile = profile?.id.startsWith("demo-") ?? false;
 
   useEffect(() => {
     if (status !== "authenticated" || !profile) {
@@ -280,7 +286,27 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
     const activeProfile = profile;
 
     async function load() {
-      if (!supabase) {
+      if (!supabase || isDemoProfile) {
+        try {
+          const raw = window.localStorage.getItem(
+            `${LOCAL_PROGRESS_PREFIX}${activeProfile.id}`,
+          );
+          if (raw) {
+            const parsed = JSON.parse(raw) as {
+              lessonProgress?: Record<string, LessonProgressRecord>;
+              shortcutLessonProgress?: Record<string, ShortcutProgress>;
+              shortcutSkillProgress?: ShortcutSkillProgress[];
+            };
+            if (!active) return;
+            setLessonProgress(parsed.lessonProgress ?? {});
+            setShortcutLessonProgress(parsed.shortcutLessonProgress ?? {});
+            setShortcutSkillProgress(
+              mergeShortcutSkills(parsed.shortcutSkillProgress ?? []),
+            );
+          }
+        } catch {
+          // Fall back to a fresh local progress state.
+        }
         if (active) setReady(true);
         return;
       }
@@ -332,7 +358,32 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
     return () => {
       active = false;
     };
-  }, [profile, status, supabase]);
+  }, [isDemoProfile, profile, status, supabase]);
+
+  useEffect(() => {
+    if (status !== "authenticated" || !profile) return;
+    if (supabase && !isDemoProfile) return;
+    try {
+      window.localStorage.setItem(
+        `${LOCAL_PROGRESS_PREFIX}${profile.id}`,
+        JSON.stringify({
+          lessonProgress,
+          shortcutLessonProgress,
+          shortcutSkillProgress,
+        }),
+      );
+    } catch {
+      // Persistence is best-effort.
+    }
+  }, [
+    isDemoProfile,
+    lessonProgress,
+    profile,
+    shortcutLessonProgress,
+    shortcutSkillProgress,
+    status,
+    supabase,
+  ]);
 
   const completedLessonOrder = useMemo(() => {
     const lessons = getLessons();
@@ -411,7 +462,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
       const next = { ...lessonProgress, [lesson.id]: nextRecord };
       setLessonProgress(next);
 
-      if (supabase) {
+      if (supabase && !isDemoProfile) {
         void supabase.from("lesson_progress").upsert(
           {
             user_id: profile.id,
@@ -437,7 +488,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
         });
       }
     },
-    [getLessonProgress, lessonProgress, profile, supabase],
+    [getLessonProgress, isDemoProfile, lessonProgress, profile, supabase],
   );
 
   const recordShortcutAttempt = useCallback(
@@ -454,7 +505,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
       );
       setShortcutSkillProgress(nextSkills);
 
-      if (supabase) {
+      if (supabase && !isDemoProfile) {
         void supabase.from("shortcut_skill_progress").upsert(
           {
             user_id: profile.id,
@@ -477,7 +528,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
         });
       }
     },
-    [profile, shortcutSkillProgress, supabase],
+    [isDemoProfile, profile, shortcutSkillProgress, supabase],
   );
 
   const recordShortcutLessonResult = useCallback(
@@ -498,7 +549,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
       const next = { ...shortcutLessonProgress, [lesson.id]: nextRecord };
       setShortcutLessonProgress(next);
 
-      if (supabase) {
+      if (supabase && !isDemoProfile) {
         void supabase.from("shortcut_lesson_progress").upsert(
           {
             user_id: profile.id,
@@ -512,7 +563,13 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
         );
       }
     },
-    [getShortcutLessonProgress, profile, shortcutLessonProgress, supabase],
+    [
+      getShortcutLessonProgress,
+      isDemoProfile,
+      profile,
+      shortcutLessonProgress,
+      supabase,
+    ],
   );
 
   const user = useMemo(() => {

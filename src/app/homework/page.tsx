@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { CalendarDays, CheckCircle2, Circle, ClipboardCheck, KeyRound } from "lucide-react";
+import { CalendarDays, CheckCircle2, Circle, ClipboardCheck, KeyRound, Play } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -22,6 +23,27 @@ function formatDueDate(iso: string): string {
     month: "short",
     day: "numeric",
   });
+}
+
+function assignmentHref(assignment: Assignment): string {
+  const firstLessonId = assignment.lessonIds?.[0];
+  if (assignment.requiredTrack === "shortcuts") {
+    return `/shortcuts/${firstLessonId ?? "shortcut-l1-copy"}`;
+  }
+  if (assignment.requiredTrack === "python") {
+    return `/lesson/${firstLessonId ?? "py-strings"}`;
+  }
+  return `/lesson/${firstLessonId ?? "l1-home-row-letters"}`;
+}
+
+function dueState(assignment: Assignment, complete: boolean) {
+  if (complete) return "Completed";
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due = new Date(`${assignment.dueDate}T00:00:00`);
+  if (due.getTime() < today.getTime()) return "Overdue";
+  if (due.getTime() === today.getTime()) return "Due Today";
+  return "Upcoming";
 }
 
 export default function HomeworkPage() {
@@ -101,6 +123,14 @@ export default function HomeworkPage() {
     (a) => evaluateAssignment(ctx, a).complete,
   ).length;
 
+  const sections = ["Due Today", "Upcoming", "Overdue", "Completed"].map((label) => ({
+    label,
+    assignments: assignments.filter((assignment) => {
+      const evaluation = evaluateAssignment(ctx, assignment);
+      return dueState(assignment, evaluation.complete) === label;
+    }),
+  }));
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -119,10 +149,19 @@ export default function HomeworkPage() {
           No homework assigned yet. Practice is still available from the lesson library.
         </Card>
       ) : (
-        <div className="space-y-4">
-          {assignments.map((a) => (
-            <HomeworkCard key={a.id} assignment={a} ctx={ctx} />
-          ))}
+        <div className="space-y-6">
+          {sections.map((section) =>
+            section.assignments.length > 0 ? (
+              <section key={section.label} className="space-y-3">
+                <h2 className="text-lg font-bold tracking-tight text-ink">
+                  {section.label}
+                </h2>
+                {section.assignments.map((a) => (
+                  <HomeworkCard key={a.id} assignment={a} ctx={ctx} />
+                ))}
+              </section>
+            ) : null,
+          )}
         </div>
       )}
     </div>
@@ -205,6 +244,13 @@ function HomeworkCard({
           </li>
         ))}
       </ul>
+      <Link
+        href={assignmentHref(assignment)}
+        className="inline-flex items-center gap-2 rounded-button bg-brand px-4 py-2 text-sm font-bold text-white shadow-[0_8px_18px_rgba(249,115,22,0.18)]"
+      >
+        <Play className="size-4" strokeWidth={1.8} aria-hidden />
+        {evaluation.complete ? "Practice again" : "Start assignment"}
+      </Link>
     </Card>
   );
 }

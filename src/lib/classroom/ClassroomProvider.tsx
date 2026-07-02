@@ -35,6 +35,8 @@ import type {
   ShortcutSkillProgressRow,
 } from "@/lib/supabase/types";
 
+const STORAGE_KEY = "speedskin:classroom";
+
 export type NewAssignmentInput = Omit<Assignment, "id">;
 
 interface Deltas {
@@ -42,6 +44,10 @@ interface Deltas {
   extraAssignments: Assignment[];
   joinedClassId: string | null;
   joinedStudent: Student | null;
+  archivedClassIds: string[];
+  deletedClassIds: string[];
+  removedStudentIds: string[];
+  joinCodeOverrides: Record<string, string>;
 }
 
 const EMPTY_DELTAS: Deltas = {
@@ -49,6 +55,10 @@ const EMPTY_DELTAS: Deltas = {
   extraAssignments: [],
   joinedClassId: null,
   joinedStudent: null,
+  archivedClassIds: [],
+  deletedClassIds: [],
+  removedStudentIds: [],
+  joinCodeOverrides: {},
 };
 
 export interface JoinResult {
@@ -82,6 +92,10 @@ interface ClassroomContextValue {
   assignmentsForClass: (classId: string) => Assignment[];
   createClass: (name: string) => Classroom;
   createAssignment: (input: NewAssignmentInput) => Assignment;
+  removeStudent: (classId: string, studentId: string) => void;
+  archiveClass: (classId: string) => void;
+  deleteClass: (classId: string) => void;
+  regenerateJoinCode: (classId: string) => string | null;
   joinClass: (code: string) => Promise<JoinResult>;
   leaveClass: () => void;
 }
@@ -109,8 +123,10 @@ function studentFromUser(user: CurrentUser, classId: string): Student {
     wpm: user.averageWpm,
     accuracy: user.averageAccuracy,
     lessonsCompleted: user.lessonsCompleted,
+    completedLessonIds: user.completedLessonIds,
     pythonLessonsCompleted: user.pythonLessonsCompleted,
     shortcutLessonsCompleted: user.shortcutLessonsCompleted,
+    completedShortcutLessonIds: user.completedShortcutLessonIds,
     shortcutMasteryPct: user.shortcutMasteryPct,
     shortcutAverageReactionMs: user.shortcutAverageReactionMs,
     practiceMinutes: user.minutesPracticed,
@@ -135,6 +151,12 @@ function normalizeStudent(student: Student): Student {
     ...student,
     pythonLessonsCompleted: legacy.pythonLessonsCompleted ?? 0,
     shortcutLessonsCompleted: legacy.shortcutLessonsCompleted ?? 0,
+    completedLessonIds: Array.isArray(legacy.completedLessonIds)
+      ? legacy.completedLessonIds
+      : [],
+    completedShortcutLessonIds: Array.isArray(legacy.completedShortcutLessonIds)
+      ? legacy.completedShortcutLessonIds
+      : [],
     shortcutMasteryPct: legacy.shortcutMasteryPct ?? 0,
     shortcutAverageReactionMs: legacy.shortcutAverageReactionMs ?? 0,
     practiceMinutes: legacy.practiceMinutes ?? 0,
@@ -155,6 +177,7 @@ function classroomFromRow(row: ClassroomRow): Classroom {
     joinCode: row.join_code,
     teacherId: row.teacher_id,
     createdAt: row.created_at.slice(0, 10),
+    archivedAt: row.archived_at ?? null,
   };
 }
 
@@ -164,6 +187,9 @@ function assignmentFromRow(row: AssignmentRow): Assignment {
     classId: row.class_id,
     title: row.title,
     dueDate: row.due_date,
+    targetMode: (row.target_mode as Assignment["targetMode"]) ?? undefined,
+    lessonIds: row.lesson_ids ?? undefined,
+    targetLabel: row.target_label ?? undefined,
     requiredLevel: row.required_level ?? undefined,
     requiredTrack: row.required_track ?? undefined,
     minWpm: row.min_wpm ?? undefined,
@@ -188,6 +214,9 @@ function assignmentToInsert(input: NewAssignmentInput, createdBy: string) {
     min_python_lessons: input.minPythonLessons ?? null,
     min_shortcut_lessons: input.minShortcutLessons ?? null,
     min_shortcut_mastery_pct: input.minShortcutMasteryPct ?? null,
+    target_mode: input.targetMode ?? null,
+    lesson_ids: input.lessonIds ?? null,
+    target_label: input.targetLabel ?? null,
     created_by: createdBy,
   };
 }
@@ -266,8 +295,12 @@ function studentFromRemote({
     wpm: averageWpm,
     accuracy: averageAccuracy,
     lessonsCompleted: completedLessons.length,
+    completedLessonIds: completedLessons.map((row) => row.lesson_id),
     pythonLessonsCompleted: pythonRows.length,
     shortcutLessonsCompleted: completedShortcutLessons,
+    completedShortcutLessonIds: shortcutLessonRows
+      .filter((row) => row.status === "completed")
+      .map((row) => row.lesson_id),
     shortcutMasteryPct,
     shortcutAverageReactionMs,
     practiceMinutes,
@@ -286,19 +319,75 @@ export function ClassroomProvider({ children }: { children: React.ReactNode }) {
   const [remote, setRemote] = useState<RemoteState>(EMPTY_REMOTE);
   const [ready, setReady] = useState(false);
   const deltasRef = useRef(deltas);
+  const isDemoProfile = profile?.id.startsWith("demo-") ?? false;
 
   useEffect(() => {
-    const id = window.setTimeout(() => setReady(true), 0);
+    const id = window.setTimeout(() => {
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as Deltas;
+          const normalized: Deltas = {
+            ...EMPTY_DELTAS,
+            ...parsed,
+            extraClasses: Array.isArray(parsed.extraClasses)
+              ? parsed.extraClasses
+              : [],
+            extraAssignments: Array.isArray(parsed.extraAssignments)
+              ? parsed.extraAssignments
+              : [],
+            archivedClassIds: Array.isArray(parsed.archivedClassIds)
+              ? parsed.archivedClassIds
+              : [],
+            deletedClassIds: Array.isArray(parsed.deletedClassIds)
+              ? parsed.deletedClassIds
+              : [],
+            removedStudentIds: Array.isArray(parsed.removedStudentIds)
+              ? parsed.removedStudentIds
+              : [],
+            joinCodeOverrides:
+              parsed.joinCodeOverrides && typeof parsed.joinCodeOverrides === "object"
+                ? parsed.joinCodeOverrides
+                : {},
+            joinedStudent: parsed.joinedStudent
+              ? normalizeStudent(parsed.joinedStudent)
+              : null,
+          };
+          deltasRef.current = normalized;
+          setDeltas(normalized);
+        }
+      } catch {
+        // Ignore corrupt local classroom state.
+      }
+      setReady(true);
+    }, 0);
     return () => window.clearTimeout(id);
   }, []);
 
   const commit = useCallback((next: Deltas) => {
     deltasRef.current = next;
     setDeltas(next);
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } catch {
+      // Persistence is best-effort.
+    }
   }, []);
 
+  useEffect(() => {
+    const current = deltasRef.current;
+    if (!current.joinedClassId || !current.joinedStudent) return;
+    if (current.joinedStudent.id !== user.id) return;
+    const nextStudent = studentFromUser(user, current.joinedClassId);
+    if (JSON.stringify(current.joinedStudent) === JSON.stringify(nextStudent)) return;
+    commit({
+      ...current,
+      joinedStudent: nextStudent,
+    });
+  }, [commit, user]);
+
   const loadRemote = useCallback(async () => {
-    if (!supabase || status !== "authenticated" || !profile) return;
+    if (!supabase || status !== "authenticated" || !profile || isDemoProfile) return;
 
     setReady(false);
     const [classResult, assignmentResult, membershipResult] = await Promise.all([
@@ -360,23 +449,44 @@ export function ClassroomProvider({ children }: { children: React.ReactNode }) {
       joinedClassId: ownMembership?.class_id ?? null,
     });
     setReady(true);
-  }, [profile, status, supabase]);
+  }, [isDemoProfile, profile, status, supabase]);
 
   useEffect(() => {
-    if (supabase && status === "authenticated" && profile) {
+    if (supabase && status === "authenticated" && profile && !isDemoProfile) {
       const id = window.setTimeout(() => void loadRemote(), 0);
       return () => window.clearTimeout(id);
     }
     return undefined;
-  }, [loadRemote, profile, status, supabase]);
+  }, [isDemoProfile, loadRemote, profile, status, supabase]);
 
   const usingRemote = Boolean(
-    supabase && status === "authenticated" && profile,
+    supabase && status === "authenticated" && profile && !isDemoProfile,
   );
 
   const localClasses = useMemo(
-    () => [...SEED_CLASSES, ...deltas.extraClasses],
-    [deltas.extraClasses],
+    () =>
+      [
+        ...SEED_CLASSES.map((item) => ({
+          ...item,
+          joinCode: deltas.joinCodeOverrides[item.id] ?? item.joinCode,
+          archivedAt: deltas.archivedClassIds.includes(item.id)
+            ? new Date().toISOString()
+            : item.archivedAt,
+        })),
+        ...deltas.extraClasses.map((item) => ({
+          ...item,
+          joinCode: deltas.joinCodeOverrides[item.id] ?? item.joinCode,
+          archivedAt: deltas.archivedClassIds.includes(item.id)
+            ? (item.archivedAt ?? new Date().toISOString())
+            : item.archivedAt,
+        })),
+      ].filter((item) => !deltas.deletedClassIds.includes(item.id)),
+    [
+      deltas.archivedClassIds,
+      deltas.deletedClassIds,
+      deltas.extraClasses,
+      deltas.joinCodeOverrides,
+    ],
   );
   const localAssignments = useMemo(
     () => [...SEED_ASSIGNMENTS, ...deltas.extraAssignments],
@@ -384,13 +494,16 @@ export function ClassroomProvider({ children }: { children: React.ReactNode }) {
   );
   const localStudents = useMemo(
     () =>
-      deltas.joinedStudent
+      (deltas.joinedStudent
         ? [...STUDENTS, normalizeStudent(deltas.joinedStudent)]
-        : STUDENTS,
-    [deltas.joinedStudent],
+        : STUDENTS
+      ).filter((student) => !deltas.removedStudentIds.includes(student.id)),
+    [deltas.joinedStudent, deltas.removedStudentIds],
   );
 
-  const classes = usingRemote ? remote.classes : localClasses;
+  const classes = (usingRemote ? remote.classes : localClasses).filter(
+    (item) => !item.archivedAt,
+  );
   const assignments = usingRemote ? remote.assignments : localAssignments;
   const students = usingRemote ? remote.students : localStudents;
   const joinedClassId = usingRemote ? remote.joinedClassId : deltas.joinedClassId;
@@ -432,6 +545,148 @@ export function ClassroomProvider({ children }: { children: React.ReactNode }) {
       return classroom;
     },
     [classes, commit, profile, supabase, usingRemote],
+  );
+
+  const removeStudent = useCallback(
+    (classId: string, studentId: string) => {
+      if (usingRemote && supabase) {
+        setRemote((current) => ({
+          ...current,
+          students: current.students.filter(
+            (student) => !(student.classId === classId && student.id === studentId),
+          ),
+          joinedClassId:
+            current.joinedClassId === classId && profile?.id === studentId
+              ? null
+              : current.joinedClassId,
+        }));
+        void supabase
+          .from("class_memberships")
+          .delete()
+          .eq("class_id", classId)
+          .eq("student_id", studentId);
+        return;
+      }
+
+      const current = deltasRef.current;
+      commit({
+        ...current,
+        removedStudentIds: current.removedStudentIds.includes(studentId)
+          ? current.removedStudentIds
+          : [...current.removedStudentIds, studentId],
+        joinedClassId:
+          current.joinedStudent?.id === studentId && current.joinedClassId === classId
+            ? null
+            : current.joinedClassId,
+        joinedStudent:
+          current.joinedStudent?.id === studentId &&
+          current.joinedStudent.classId === classId
+            ? null
+            : current.joinedStudent,
+      });
+    },
+    [commit, profile?.id, supabase, usingRemote],
+  );
+
+  const archiveClass = useCallback(
+    (classId: string) => {
+      const archivedAt = new Date().toISOString();
+      if (usingRemote && supabase) {
+        setRemote((current) => ({
+          ...current,
+          classes: current.classes.map((item) =>
+            item.id === classId ? { ...item, archivedAt } : item,
+          ),
+          joinedClassId: current.joinedClassId === classId ? null : current.joinedClassId,
+        }));
+        void supabase.from("classrooms").update({ archived_at: archivedAt }).eq("id", classId);
+        return;
+      }
+      const current = deltasRef.current;
+      commit({
+        ...current,
+        extraClasses: current.extraClasses.map((item) =>
+          item.id === classId ? { ...item, archivedAt } : item,
+        ),
+        archivedClassIds: current.archivedClassIds.includes(classId)
+          ? current.archivedClassIds
+          : [...current.archivedClassIds, classId],
+        joinedClassId: current.joinedClassId === classId ? null : current.joinedClassId,
+        joinedStudent:
+          current.joinedStudent?.classId === classId ? null : current.joinedStudent,
+      });
+    },
+    [commit, supabase, usingRemote],
+  );
+
+  const deleteClass = useCallback(
+    (classId: string) => {
+      if (usingRemote && supabase) {
+        setRemote((current) => ({
+          ...current,
+          classes: current.classes.filter((item) => item.id !== classId),
+          assignments: current.assignments.filter((item) => item.classId !== classId),
+          students: current.students.filter((item) => item.classId !== classId),
+          joinedClassId: current.joinedClassId === classId ? null : current.joinedClassId,
+        }));
+        void supabase.from("classrooms").delete().eq("id", classId);
+        return;
+      }
+      const current = deltasRef.current;
+      commit({
+        ...current,
+        extraClasses: current.extraClasses.filter((item) => item.id !== classId),
+        extraAssignments: current.extraAssignments.filter(
+          (item) => item.classId !== classId,
+        ),
+        deletedClassIds: current.deletedClassIds.includes(classId)
+          ? current.deletedClassIds
+          : [...current.deletedClassIds, classId],
+        removedStudentIds: [
+          ...new Set([
+            ...current.removedStudentIds,
+            ...STUDENTS.filter((student) => student.classId === classId).map(
+              (student) => student.id,
+            ),
+          ]),
+        ],
+        joinedClassId: current.joinedClassId === classId ? null : current.joinedClassId,
+        joinedStudent:
+          current.joinedStudent?.classId === classId ? null : current.joinedStudent,
+      });
+    },
+    [commit, supabase, usingRemote],
+  );
+
+  const regenerateJoinCode = useCallback(
+    (classId: string): string | null => {
+      const taken = new Set(classes.filter((c) => c.id !== classId).map((c) => c.joinCode));
+      let joinCode = generateJoinCode();
+      while (taken.has(joinCode)) joinCode = generateJoinCode();
+      if (usingRemote && supabase) {
+        setRemote((current) => ({
+          ...current,
+          classes: current.classes.map((item) =>
+            item.id === classId ? { ...item, joinCode } : item,
+          ),
+        }));
+        void supabase.from("classrooms").update({ join_code: joinCode }).eq("id", classId);
+        return joinCode;
+      }
+      const current = deltasRef.current;
+      commit({
+        ...current,
+        extraClasses: current.extraClasses.map((item) =>
+          item.id === classId ? { ...item, joinCode } : item,
+        ),
+        joinCodeOverrides: {
+          ...current.joinCodeOverrides,
+          [classId]: joinCode,
+        },
+      });
+      return joinCode;
+    },
+    [classes, commit, supabase, usingRemote],
   );
 
   const createAssignment = useCallback(
@@ -493,8 +748,7 @@ export function ClassroomProvider({ children }: { children: React.ReactNode }) {
       }
 
       const current = deltasRef.current;
-      const all = [...SEED_CLASSES, ...current.extraClasses];
-      const classroom = all.find((c) => c.joinCode === normalized);
+      const classroom = localClasses.find((c) => c.joinCode === normalized);
       if (!classroom) return { ok: false };
 
       commit({
@@ -504,7 +758,7 @@ export function ClassroomProvider({ children }: { children: React.ReactNode }) {
       });
       return { ok: true, classroom };
     },
-    [commit, loadRemote, supabase, user, usingRemote],
+    [commit, loadRemote, localClasses, supabase, user, usingRemote],
   );
 
   const leaveClass = useCallback(() => {
@@ -561,6 +815,10 @@ export function ClassroomProvider({ children }: { children: React.ReactNode }) {
         assignments.filter((a) => a.classId === classId),
       createClass,
       createAssignment,
+      removeStudent,
+      archiveClass,
+      deleteClass,
+      regenerateJoinCode,
       joinClass,
       leaveClass,
     };
@@ -569,9 +827,13 @@ export function ClassroomProvider({ children }: { children: React.ReactNode }) {
     classes,
     createAssignment,
     createClass,
+    deleteClass,
+    regenerateJoinCode,
     joinClass,
     joinedClassId,
     leaveClass,
+    archiveClass,
+    removeStudent,
     ready,
     students,
     teacher,

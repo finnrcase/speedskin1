@@ -21,6 +21,13 @@ export function RequirementBadges({ assignment }: { assignment: Assignment }) {
   const items: RequirementBadge[] = [];
   if (assignment.requiredLevel !== undefined)
     items.push({ label: `Level ${assignment.requiredLevel}+`, Icon: Layers });
+  if (assignment.targetLabel)
+    items.push({ label: assignment.targetLabel, Icon: Layers });
+  if (assignment.lessonIds?.length)
+    items.push({
+      label: `${assignment.lessonIds.length} assigned lesson${assignment.lessonIds.length === 1 ? "" : "s"}`,
+      Icon: Layers,
+    });
   if (assignment.minWpm !== undefined)
     items.push({ label: `${assignment.minWpm}+ WPM`, Icon: Gauge });
   if (assignment.minAccuracy !== undefined)

@@ -21,6 +21,7 @@ interface StudentProgressTableProps {
   assignments: Assignment[];
   pythonTotal: number;
   shortcutTotal: number;
+  onRemoveStudent?: (studentId: string) => void;
 }
 
 function homeworkDone(student: Student, assignments: Assignment[]): number {
@@ -40,6 +41,7 @@ export function StudentProgressTable({
   assignments,
   pythonTotal,
   shortcutTotal,
+  onRemoveStudent,
 }: StudentProgressTableProps) {
   return (
     <div className="overflow-x-auto rounded-card border border-line bg-surface shadow-[0_6px_18px_rgba(88,64,38,0.05)]">
@@ -60,6 +62,7 @@ export function StudentProgressTable({
             <th className="px-3 py-3">Reaction</th>
             <th className="px-3 py-3">Missed shortcuts</th>
             <th className="px-3 py-3">Homework</th>
+            {onRemoveStudent && <th className="px-3 py-3">Manage</th>}
           </tr>
         </thead>
         <tbody>
@@ -144,6 +147,17 @@ export function StudentProgressTable({
                     {done}/{assignments.length}
                   </span>
                 </td>
+                {onRemoveStudent && (
+                  <td className="px-3 py-3">
+                    <button
+                      type="button"
+                      onClick={() => onRemoveStudent(s.id)}
+                      className="rounded-button border border-line bg-white px-2 py-1 text-xs font-bold text-danger hover:border-danger/40"
+                    >
+                      Remove
+                    </button>
+                  </td>
+                )}
               </tr>
             );
           })}
