@@ -6,10 +6,9 @@ import {
   SUPABASE_ANON_KEY,
   SUPABASE_URL,
 } from "@/lib/supabase/config";
+import { DEMO_ROLE_COOKIE, isUserRole } from "@/lib/auth/demo-session";
 
 const PUBLIC_PATHS = ["/auth", "/onboarding"];
-const DEMO_ROLE_COOKIE = "speedskin-demo-role";
-const DEMO_ROLES = new Set(["student", "teacher", "admin"]);
 
 function isPublicPath(pathname: string) {
   return (
@@ -27,7 +26,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const demoRole = request.cookies.get(DEMO_ROLE_COOKIE)?.value;
-  if (demoRole && DEMO_ROLES.has(demoRole)) {
+  if (isUserRole(demoRole)) {
     return sessionResponse;
   }
 

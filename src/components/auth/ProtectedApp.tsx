@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AuthLanding } from "@/components/auth/AuthLanding";
 import { RoleOnboarding } from "@/components/auth/RoleOnboarding";
 import { AppShell } from "@/components/layout/AppShell";
+import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAuth } from "@/lib/auth/AuthProvider";
 import type { UserRole } from "@/lib/data/types";
@@ -46,16 +47,26 @@ export function ProtectedApp({ children }: { children: React.ReactNode }) {
   const { profile, status } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const [failedRedirectPath, setFailedRedirectPath] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     if (status !== "authenticated" || !profile?.role) return;
     if (isAuthenticationPath(pathname)) {
-      router.replace(homeForRole(profile.role));
-      return;
+      const destination = homeForRole(profile.role);
+      router.replace(destination);
+      const timeoutId = window.setTimeout(() => {
+        if (window.location.pathname === pathname) {
+          setFailedRedirectPath(pathname);
+        }
+      }, 3000);
+      return () => window.clearTimeout(timeoutId);
     }
     if (!roleCanAccess(pathname, profile.role)) {
       router.replace(homeForRole(profile.role));
     }
+    return undefined;
   }, [pathname, profile?.role, router, status]);
 
   if (pathname.startsWith("/auth/callback")) {
@@ -81,10 +92,24 @@ export function ProtectedApp({ children }: { children: React.ReactNode }) {
   }
 
   if (isAuthenticationPath(pathname)) {
+    const redirectFailed = failedRedirectPath === pathname;
+    const destination = homeForRole(profile.role);
     return (
       <AppShell>
-        <Card className="text-center text-sm font-semibold text-ink-soft">
-          Opening your dashboardâ€¦
+        <Card className="space-y-3 text-center text-sm font-semibold text-ink-soft">
+          <p>
+            {redirectFailed
+              ? "We couldn’t open your dashboard automatically."
+              : "Opening your dashboard…"}
+          </p>
+          {redirectFailed && (
+            <Button
+              type="button"
+              onClick={() => window.location.assign(destination)}
+            >
+              Try again
+            </Button>
+          )}
         </Card>
       </AppShell>
     );

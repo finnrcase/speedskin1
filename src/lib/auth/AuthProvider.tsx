@@ -16,6 +16,12 @@ import type {
 } from "@supabase/supabase-js";
 import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import type { UserProfile, UserRole } from "@/lib/data/types";
+import {
+  DEMO_PROFILE_KEY,
+  demoRoleCookie,
+  expiredDemoRoleCookie,
+  isValidDemoProfile,
+} from "./demo-session";
 
 type AuthStatus =
   | "loading"
@@ -49,8 +55,6 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
-const DEMO_PROFILE_KEY = "speedskin:demo-profile";
-const DEMO_ROLE_COOKIE = "speedskin-demo-role";
 
 const PROFILE_COLUMNS =
   "id,user_id,email,full_name,avatar_url,role,created_at,updated_at,last_login";
@@ -76,13 +80,47 @@ function demoProfile(role: UserRole, fullName?: string): UserProfile {
   };
 }
 
+function clearDemoPersistence() {
+  try {
+    window.localStorage.removeItem(DEMO_PROFILE_KEY);
+  } catch {
+    // Continue clearing the cookie even if localStorage is unavailable.
+  }
+  try {
+    document.cookie = expiredDemoRoleCookie();
+  } catch {
+    // Browser storage may be unavailable; the in-memory session still clears.
+  }
+}
+
+function persistDemoProfile(profile: UserProfile): boolean {
+  if (!profile.role) return false;
+  try {
+    window.localStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify(profile));
+    document.cookie = demoRoleCookie(profile.role);
+    return true;
+  } catch {
+    clearDemoPersistence();
+    return false;
+  }
+}
+
 function readDemoProfile(): UserProfile | null {
   try {
     const raw = window.localStorage.getItem(DEMO_PROFILE_KEY);
-    if (!raw) return null;
-    const saved = JSON.parse(raw) as UserProfile;
-    return saved?.id?.startsWith("demo-") && saved.role ? saved : null;
+    if (!raw) {
+      clearDemoPersistence();
+      return null;
+    }
+    const saved: unknown = JSON.parse(raw);
+    if (!isValidDemoProfile(saved)) {
+      clearDemoPersistence();
+      return null;
+    }
+    document.cookie = demoRoleCookie(saved.role);
+    return saved;
   } catch {
+    clearDemoPersistence();
     return null;
   }
 }
@@ -364,11 +402,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInAsDemo = useCallback((role: UserRole, fullName?: string) => {
     const nextProfile = demoProfile(role, fullName);
-    try {
-      window.localStorage.setItem(DEMO_PROFILE_KEY, JSON.stringify(nextProfile));
-      document.cookie = `${DEMO_ROLE_COOKIE}=${role}; path=/; max-age=604800; SameSite=Lax`;
-    } catch {
-      // Local demo persistence is best-effort.
+    if (!persistDemoProfile(nextProfile)) {
+      setAuthError("Demo mode requires browser storage and cookies.");
+      return;
     }
     setSession(null);
     setAuthError(null);
@@ -378,12 +414,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    try {
-      window.localStorage.removeItem(DEMO_PROFILE_KEY);
-      document.cookie = `${DEMO_ROLE_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
-    } catch {
-      // ignore
-    }
+    clearDemoPersistence();
     if (supabase) await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
