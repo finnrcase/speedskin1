@@ -28,6 +28,10 @@ function pathMatches(pathname: string, route: string) {
   return pathname === route || pathname.startsWith(`${route}/`);
 }
 
+function isAuthenticationPath(pathname: string) {
+  return pathMatches(pathname, "/auth") || pathname === "/onboarding";
+}
+
 function roleCanAccess(pathname: string, role: UserRole) {
   if (pathMatches(pathname, "/settings")) return true;
   if (pathMatches(pathname, "/admin")) return role === "admin";
@@ -45,7 +49,7 @@ export function ProtectedApp({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (status !== "authenticated" || !profile?.role) return;
-    if (pathname === "/auth" || pathname.startsWith("/auth/") || pathname === "/onboarding") {
+    if (isAuthenticationPath(pathname)) {
       router.replace(homeForRole(profile.role));
       return;
     }
@@ -74,6 +78,16 @@ export function ProtectedApp({ children }: { children: React.ReactNode }) {
 
   if (status === "needs-role" || !profile?.role) {
     return <RoleOnboarding />;
+  }
+
+  if (isAuthenticationPath(pathname)) {
+    return (
+      <AppShell>
+        <Card className="text-center text-sm font-semibold text-ink-soft">
+          Opening your dashboardâ€¦
+        </Card>
+      </AppShell>
+    );
   }
 
   if (!roleCanAccess(pathname, profile.role)) {

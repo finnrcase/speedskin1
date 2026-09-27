@@ -27,6 +27,10 @@ import {
   type ShortcutSkillProgress,
 } from "@/lib/data";
 import { defaultShortcutSkillProgress } from "@/lib/shortcuts/mastery";
+import {
+  normalizeLocalProgress,
+  type LessonProgressRecord,
+} from "./local-progress";
 import type { TypingResult } from "@/lib/typing/useTypingEngine";
 import type {
   DbLessonStatus,
@@ -45,12 +49,6 @@ import {
   getLessonsByAcademy,
   getNextAcademyLesson,
 } from "@/lib/curriculum";
-
-interface LessonProgressRecord extends LessonProgress {
-  track: LessonTrack;
-  completedSessions: number;
-  minutesPracticed: number;
-}
 
 interface UserProgressContextValue {
   ready: boolean;
@@ -82,6 +80,33 @@ interface UserProgressContextValue {
 
 const UserProgressContext = createContext<UserProgressContextValue | null>(null);
 const LOCAL_PROGRESS_PREFIX = "speedskin:progress:";
+
+function missingOptionalAttemptsTable(error: { code?: string; message: string }) {
+  const message = error.message.toLowerCase();
+  return (
+    error.code === "42P01" ||
+    error.code === "PGRST205" ||
+    (message.includes("lesson_attempts") &&
+      (message.includes("does not exist") || message.includes("schema cache")))
+  );
+}
+
+function reportProgressQueryError(
+  table: string,
+  error: { code?: string; message: string } | null,
+) {
+  if (!error) return;
+  if (table === "lesson_attempts" && missingOptionalAttemptsTable(error)) {
+    if (process.env.NODE_ENV !== "production") {
+      console.warn(
+        "SpeedSkin Academy attempts are unavailable. Apply Supabase migrations 007 and 008; continuing with empty Academy attempt history.",
+        error,
+      );
+    }
+    return;
+  }
+  console.error(`SpeedSkin could not load ${table}; continuing without it.`, error);
+}
 
 function initials(name: string) {
   return name
@@ -376,19 +401,14 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
             `${LOCAL_PROGRESS_PREFIX}${activeProfile.id}`,
           );
           if (raw) {
-            const parsed = JSON.parse(raw) as {
-              lessonProgress?: Record<string, LessonProgressRecord>;
-              shortcutLessonProgress?: Record<string, ShortcutProgress>;
-              shortcutSkillProgress?: ShortcutSkillProgress[];
-              academyAttempts?: LessonAttempt[];
-            };
+            const parsed = normalizeLocalProgress(JSON.parse(raw));
             if (!active) return;
-            setLessonProgress(parsed.lessonProgress ?? {});
-            setShortcutLessonProgress(parsed.shortcutLessonProgress ?? {});
+            setLessonProgress(parsed.lessonProgress);
+            setShortcutLessonProgress(parsed.shortcutLessonProgress);
             setShortcutSkillProgress(
-              mergeShortcutSkills(parsed.shortcutSkillProgress ?? []),
+              mergeShortcutSkills(parsed.shortcutSkillProgress),
             );
-            const savedAttempts = parsed.academyAttempts ?? [];
+            const savedAttempts = parsed.academyAttempts;
             setAcademyAttempts(savedAttempts);
             recordedAttemptIdsRef.current = new Set(
               savedAttempts.map((attempt) => attempt.id),
@@ -433,6 +453,17 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
         ]);
 
       if (!active) return;
+
+      reportProgressQueryError("lesson_progress", lessonRows.error);
+      reportProgressQueryError(
+        "shortcut_lesson_progress",
+        shortcutLessonRows.error,
+      );
+      reportProgressQueryError(
+        "shortcut_skill_progress",
+        shortcutSkillRows.error,
+      );
+      reportProgressQueryError("lesson_attempts", attemptRows.error);
 
       setLessonProgress(
         Object.fromEntries(

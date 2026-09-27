@@ -5,6 +5,7 @@ import {
   Keyboard,
   Laptop,
   MessageSquareText,
+  School,
   ShieldCheck,
   UsersRound,
   type LucideIcon,
@@ -22,8 +23,8 @@ const ICONS: Record<AcademyId, LucideIcon> = {
   life: CalendarCheck,
 };
 
-export function AcademyIcon({ academy, className = "size-6" }: { academy: AcademyId; className?: string }) {
-  const Icon = ICONS[academy];
+export function AcademyIcon({ academy, className = "size-6" }: { academy: AcademyId | string; className?: string }) {
+  const Icon = ICONS[academy as AcademyId] ?? School;
   return <Icon className={className} strokeWidth={1.8} aria-hidden />;
 }
 
