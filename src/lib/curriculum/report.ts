@@ -19,6 +19,8 @@ export interface AcademyCoverage {
 export function getCurriculumCoverage(
   lessons: readonly CurriculumLesson[] = CURRICULUM_LESSONS,
 ): AcademyCoverage[] {
+  const idCounts = new Map<string, number>();
+  lessons.forEach((lesson) => idCounts.set(lesson.id, (idCounts.get(lesson.id) ?? 0) + 1));
   return ACADEMIES.map((academy) => {
     const plan = ACADEMY_CURRICULUM_PLANS.find((item) => item.academyId === academy.id);
     const academyLessons = lessons.filter((lesson) => lesson.academy === academy.id);
@@ -26,6 +28,7 @@ export function getCurriculumCoverage(
     const sequences = coreLessons.map((lesson) => lesson.sequence);
     const flags: string[] = [];
     if (!academyLessons.length) flags.push("No lessons authored");
+    if (academyLessons.some((lesson) => (idCounts.get(lesson.id) ?? 0) > 1)) flags.push("Duplicate lesson IDs");
     if (new Set(sequences).size !== sequences.length) flags.push("Duplicate sequence positions");
     if (academyLessons.some((lesson) => lesson.quizBank.length < 5)) flags.push("Incomplete quiz bank");
     if (!plan) flags.push("Missing Academy plan");

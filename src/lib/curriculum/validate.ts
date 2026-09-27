@@ -23,6 +23,7 @@ const academyIds = new Set<string>(ACADEMY_IDS);
 const gradeBandIds = new Set<string>(GRADE_BANDS.map((band) => band.id));
 const curriculumLevelIds = new Set<string>(CURRICULUM_LEVELS.map((level) => level.id));
 const typingLevelIds = new Set<string>(TYPING_LEVELS.map((level) => level.id));
+const lessonStatuses = new Set(["draft", "published", "archived"]);
 
 function issue(
   issues: CurriculumValidationIssue[],
@@ -130,14 +131,26 @@ export function validateCurriculum(
     if (!gradeBandIds.has(lesson.gradeBand)) issue(issues, "error", "invalid-grade-band", `${path}.gradeBand`, `Unknown grade band "${lesson.gradeBand}".`);
     if (!curriculumLevelIds.has(lesson.curriculumLevel)) issue(issues, "error", "invalid-curriculum-level", `${path}.curriculumLevel`, `Unknown curriculum level "${lesson.curriculumLevel}".`);
     if (!typingLevelIds.has(lesson.typingLevel)) issue(issues, "error", "invalid-typing-level", `${path}.typingLevel`, `Unknown typing level "${lesson.typingLevel}".`);
+    if (!lessonStatuses.has(lesson.status)) issue(issues, "error", "invalid-status", `${path}.status`, `Unknown lesson status "${lesson.status}".`);
 
-    const unit = planByAcademy.get(lesson.academy)?.units.find((candidate) => candidate.id === lesson.unitId);
+    const academyPlan = planByAcademy.get(lesson.academy);
+    const unit = academyPlan?.units.find((candidate) => candidate.id === lesson.unitId);
     if (!unit) issue(issues, "error", "invalid-unit", `${path}.unitId`, `Unit "${lesson.unitId}" does not belong to ${lesson.academy} Academy.`);
 
     if (!Number.isInteger(lesson.sequence) || lesson.sequence < 1) issue(issues, "error", "invalid-sequence", `${path}.sequence`, "Sequence must be a positive integer.");
     const sequenceKey = `${lesson.academy}:${lesson.sequence}`;
     if (sequencePositions.has(sequenceKey)) issue(issues, "error", "duplicate-sequence", `${path}.sequence`, `Sequence ${lesson.sequence} is duplicated in ${lesson.academy} Academy.`);
     sequencePositions.add(sequenceKey);
+    const roadmapSlots = academyPlan?.units.flatMap((plannedUnit) =>
+      plannedUnit.topicSequence.map((title) => ({ title, unitId: plannedUnit.id })),
+    );
+    const roadmapSlot = roadmapSlots?.[lesson.sequence - 1];
+    if (!roadmapSlot) {
+      issue(issues, "error", "invalid-roadmap-slot", `${path}.sequence`, `Sequence ${lesson.sequence} does not identify a planned ${lesson.academy} roadmap slot.`);
+    } else {
+      if (roadmapSlot.title !== lesson.title) issue(issues, "error", "roadmap-title-mismatch", `${path}.title`, `Roadmap slot ${lesson.sequence} is "${roadmapSlot.title}", not "${lesson.title}".`);
+      if (roadmapSlot.unitId !== lesson.unitId) issue(issues, "error", "roadmap-unit-mismatch", `${path}.unitId`, `Roadmap slot ${lesson.sequence} belongs to unit "${roadmapSlot.unitId}".`);
+    }
 
     if (wordCount(lesson.miniLesson) > 180) issue(issues, "error", "mini-lesson-too-long", `${path}.miniLesson`, "Mini-lesson exceeds the 180-word authoring maximum.");
     if (lesson.thinkMinLength !== undefined && lesson.thinkMinLength < 10) issue(issues, "error", "think-min-too-small", `${path}.thinkMinLength`, "Think minimum must be at least 10 characters.");
@@ -200,7 +213,10 @@ export function validateAcademyPlans(
     if (planAcademies.has(plan.academyId)) issue(issues, "error", "duplicate-academy-plan", `${path}.academyId`, `Academy plan "${plan.academyId}" is duplicated.`);
     planAcademies.add(plan.academyId);
     requiredText(issues, plan.purpose, `${path}.purpose`, "Academy purpose");
+    requiredText(issues, plan.typingProgressionNotes, `${path}.typingProgressionNotes`, "Typing progression notes");
     if (!plan.outcomes.length) issue(issues, "error", "missing-academy-outcomes", `${path}.outcomes`, "Academy must define end outcomes.");
+    if (!plan.v1Topics.length) issue(issues, "error", "missing-v1-topics", `${path}.v1Topics`, "Academy must identify V1 priority topics.");
+    if (!plan.laterTopics.length) issue(issues, "error", "missing-later-topics", `${path}.laterTopics`, "Academy must identify later topics.");
     if (!Number.isInteger(plan.suggestedCoreLessonCount) || plan.suggestedCoreLessonCount < 1) issue(issues, "error", "invalid-planned-count", `${path}.suggestedCoreLessonCount`, "Suggested lesson count must be a positive integer.");
     const slotCount = plan.units.reduce((total, unit) => total + unit.topicSequence.length, 0);
     if (slotCount !== plan.suggestedCoreLessonCount) issue(issues, "error", "planned-count-mismatch", `${path}.units`, `Units contain ${slotCount} slots but plan targets ${plan.suggestedCoreLessonCount}.`);
@@ -211,6 +227,8 @@ export function validateAcademyPlans(
       requiredText(issues, unit.title, `${unitPath}.title`, "Unit title");
       requiredText(issues, unit.description, `${unitPath}.description`, "Unit description");
       if (!unit.outcomes.length) issue(issues, "error", "missing-unit-outcomes", `${unitPath}.outcomes`, "Unit must define outcomes.");
+      if (!unit.recommendedCurriculumLevels.length) issue(issues, "error", "missing-unit-curriculum-levels", `${unitPath}.recommendedCurriculumLevels`, "Unit must recommend at least one curriculum level.");
+      if (!unit.recommendedTypingLevels.length) issue(issues, "error", "missing-unit-typing-levels", `${unitPath}.recommendedTypingLevels`, "Unit must recommend at least one typing level.");
       if (!unit.topicSequence.length || unit.topicSequence.some((topic) => !topic.trim())) issue(issues, "error", "invalid-topic-sequence", `${unitPath}.topicSequence`, "Unit topic sequence must contain nonempty slots.");
       if (new Set(unit.topicSequence).size !== unit.topicSequence.length) issue(issues, "error", "duplicate-topic-slot", `${unitPath}.topicSequence`, "Topic slots must be unique within a unit.");
       unit.recommendedCurriculumLevels.forEach((id) => {

@@ -122,7 +122,7 @@ Before publishing, verify:
   xpValue: 50,
   mastery: { targetAccuracy: 92, targetQuizPercentage: 67, minimumSuccessfulAttempts: 1 },
   isCore: true,
-  sequence: 1,
+  sequence: 6,
   status: "published",
   locale: "en-US",
   level: 7,

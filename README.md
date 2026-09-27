@@ -123,6 +123,17 @@ Run tests:
 npm run test
 ```
 
+Validate curriculum and inspect coverage:
+
+```bash
+npm run curriculum:validate
+npm run curriculum:report
+```
+
+The curriculum authoring workflow and Finn Build Sheet live in
+`docs/curriculum/`. Curriculum validation also runs automatically before a
+production build.
+
 Run the production build:
 
 ```bash

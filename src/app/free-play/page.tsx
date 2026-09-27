@@ -14,6 +14,7 @@ import {
   getAcademies,
   getFreePlayLessons,
   getSurpriseLesson,
+  getTypingLevel,
 } from "@/lib/curriculum";
 import type { AcademyId, GradeBand, TypingLevel } from "@/lib/data/types";
 import { useUserProgress } from "@/lib/progress/UserProgressProvider";
@@ -98,7 +99,7 @@ export default function FreePlayPage() {
           <Card key={lesson.id} className="flex h-full flex-col gap-4">
             <div className="flex items-center justify-between gap-3">
               <span className="flex size-10 items-center justify-center rounded-xl bg-brand-tint text-brand-dark"><AcademyIcon academy={lesson.academy} className="size-5" /></span>
-              <Badge tone="neutral">{lesson.typingLevel}</Badge>
+              <Badge tone="neutral">{getTypingLevel(lesson.typingLevel)?.name}</Badge>
             </div>
             <div className="flex-1">
               <h2 className="text-lg font-bold text-ink">{lesson.title}</h2>

@@ -35,7 +35,7 @@ describe("curriculum engine", () => {
   });
 
   it("keeps typing and curriculum difficulty independent", () => {
-    const byTyping = getCurriculumLessons({ typingLevel: "intermediate" });
+    const byTyping = getCurriculumLessons({ typingLevel: "punctuation" });
     const byCurriculum = getCurriculumLessons({ curriculumLevel: "foundation" });
     expect(byTyping.some((lesson) => lesson.curriculumLevel === "developing")).toBe(true);
     expect(byCurriculum.some((lesson) => lesson.typingLevel === "beginner")).toBe(true);

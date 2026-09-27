@@ -63,7 +63,15 @@ automatically personalize grade eligibility until profile/onboarding data exists
 
 ## Adding curriculum
 
+The curriculum production system is documented in `docs/curriculum/README.md`,
+with the human authoring contract in `docs/curriculum/Finn-Build-Sheet.md` and
+the 135-slot plan in `docs/curriculum/roadmap.md`. Conceptual levels, typing
+levels, and grade bands are centralized in `src/lib/curriculum/levels.ts`;
+Academy outcomes and units live in `src/lib/curriculum/plans.ts`.
+
 Add a validated `CurriculumLesson` to `src/lib/curriculum/lessons.ts`. The
 catalog, filters, Academy browser, Free Play, Surprise Me, lesson player,
 scoring, and progress views consume the shared data automatically. New locales
 can use the optional `locale` metadata; the typing engine remains text-agnostic.
+`npm run curriculum:validate` is also a production-build prerequisite, while
+`npm run curriculum:report` shows authored coverage and gaps.

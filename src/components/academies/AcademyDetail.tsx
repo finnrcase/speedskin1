@@ -7,7 +7,12 @@ import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { buttonClasses } from "@/components/ui/Button";
-import { getAcademyProgress, getLessonsByAcademy } from "@/lib/curriculum";
+import {
+  getAcademyProgress,
+  getCurriculumLevel,
+  getLessonsByAcademy,
+  getTypingLevel,
+} from "@/lib/curriculum";
 import type { Academy } from "@/lib/data/types";
 import { useUserProgress } from "@/lib/progress/UserProgressProvider";
 
@@ -49,8 +54,8 @@ export function AcademyDetail({ academy }: { academy: Academy }) {
                   <Badge tone={complete ? "success" : "brand"} icon={complete ? CheckCircle2 : undefined}>
                     {complete ? "Completed" : `Lesson ${lesson.sequence}`}
                   </Badge>
-                  <Badge tone="neutral">{lesson.typingLevel} typing</Badge>
-                  <Badge tone="neutral">{lesson.curriculumLevel} concept</Badge>
+                  <Badge tone="neutral">{getTypingLevel(lesson.typingLevel)?.name} typing</Badge>
+                  <Badge tone="neutral">{getCurriculumLevel(lesson.curriculumLevel)?.name} concept</Badge>
                 </div>
                 <div className="flex-1">
                   <h2 className="text-xl font-bold tracking-tight text-ink">{lesson.title}</h2>
@@ -82,4 +87,3 @@ export function AcademyDetail({ academy }: { academy: Academy }) {
     </div>
   );
 }
-
