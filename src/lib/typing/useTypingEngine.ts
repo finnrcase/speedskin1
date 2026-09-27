@@ -79,6 +79,7 @@ export function useTypingEngine(
   const startedAtRef = useRef<number | null>(null);
   const currentIndexRef = useRef(0);
   const mistakesRef = useRef(0);
+  const finishedRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
     onCompleteRef.current = onComplete;
@@ -86,6 +87,8 @@ export function useTypingEngine(
 
   const finish = useCallback(
     (correctChars: number, finalMistakes: number, end: number) => {
+      if (finishedRef.current) return;
+      finishedRef.current = true;
       const start = startedAtRef.current ?? end;
       setStatus("complete");
       setEndedAt(end);
@@ -143,6 +146,7 @@ export function useTypingEngine(
   const reset = useCallback(() => {
     currentIndexRef.current = 0;
     mistakesRef.current = 0;
+    finishedRef.current = false;
     startedAtRef.current = null;
     setStatus("idle");
     setCurrentIndex(0);

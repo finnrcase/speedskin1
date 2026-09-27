@@ -6,7 +6,19 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import type { NewAssignmentInput } from "@/lib/classroom/ClassroomProvider";
 import { getLessonsByTrack, getShortcutLessons } from "@/lib/data";
-import type { AssignmentTargetMode, LessonTrack } from "@/lib/data/types";
+import {
+  CURRICULUM_LEVELS,
+  TYPING_LEVELS,
+  getAcademies,
+  getLessonsByAcademy,
+} from "@/lib/curriculum";
+import type {
+  AcademyId,
+  AssignmentTargetMode,
+  CurriculumLevel,
+  LessonTrack,
+  TypingLevel,
+} from "@/lib/data/types";
 import { cn } from "@/lib/utils";
 
 interface AssignmentFormProps {
@@ -27,8 +39,8 @@ const assignmentTypes: {
 }[] = [
   {
     track: "basics",
-    title: "Typing",
-    copy: "Level, WPM, accuracy, and practice time.",
+    title: "Academy",
+    copy: "Assign a reviewed Academy lesson or sequence.",
     Icon: BookOpen,
   },
   {
@@ -51,14 +63,30 @@ function optionalNumber(value: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-function lessonsForTrack(track: LessonTrack) {
-  return track === "shortcuts" ? getShortcutLessons() : getLessonsByTrack(track);
+function lessonsForTrack(
+  track: LessonTrack,
+  academy: AcademyId,
+  typingLevel: TypingLevel | "",
+  curriculumLevel: CurriculumLevel | "",
+) {
+  if (track === "shortcuts") return getShortcutLessons();
+  if (track === "basics") {
+    return getLessonsByAcademy(academy).filter(
+      (lesson) =>
+        (!typingLevel || lesson.typingLevel === typingLevel) &&
+        (!curriculumLevel || lesson.curriculumLevel === curriculumLevel),
+    );
+  }
+  return getLessonsByTrack(track);
 }
 
 export function AssignmentForm({ classId, onCreate, onCancel }: AssignmentFormProps) {
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [requiredTrack, setRequiredTrack] = useState<LessonTrack>("basics");
+  const [academyId, setAcademyId] = useState<AcademyId>("keyboard");
+  const [typingLevel, setTypingLevel] = useState<TypingLevel | "">("");
+  const [curriculumLevel, setCurriculumLevel] = useState<CurriculumLevel | "">("");
   const [requiredLevel, setRequiredLevel] = useState("");
   const [minWpm, setMinWpm] = useState("");
   const [minAccuracy, setMinAccuracy] = useState("");
@@ -70,8 +98,15 @@ export function AssignmentForm({ classId, onCreate, onCancel }: AssignmentFormPr
   const [selectedLessonId, setSelectedLessonId] = useState("");
   const [rangeEnd, setRangeEnd] = useState("3");
 
-  const lessons = lessonsForTrack(requiredTrack);
-  const selectedId = selectedLessonId || lessons[0]?.id || "";
+  const lessons = lessonsForTrack(
+    requiredTrack,
+    academyId,
+    typingLevel,
+    curriculumLevel,
+  );
+  const selectedId = lessons.some((lesson) => lesson.id === selectedLessonId)
+    ? selectedLessonId
+    : lessons[0]?.id ?? "";
 
   const selectedLessonIds = () => {
     if (lessons.length === 0) return [];
@@ -91,7 +126,12 @@ export function AssignmentForm({ classId, onCreate, onCancel }: AssignmentFormPr
     }
     if (targetMode === "multiple") return "First 3 lessons";
     if (targetMode === "range") return `Levels 1-${rangeEnd || lessons.length}`;
-    if (targetMode === "unit") return `${requiredTrack === "python" ? "Coding" : requiredTrack === "shortcuts" ? "Shortcut" : "Typing"} unit`;
+    if (targetMode === "unit") {
+      if (requiredTrack === "basics") {
+        return `${getAcademies().find((item) => item.id === academyId)?.name ?? "Academy"} unit`;
+      }
+      return `${requiredTrack === "python" ? "Coding" : "Shortcut"} unit`;
+    }
     if (targetMode === "randomized") return "Randomized practice";
     if (targetMode === "checkpoint") return "Checkpoint";
     return "Category practice";
@@ -108,6 +148,11 @@ export function AssignmentForm({ classId, onCreate, onCancel }: AssignmentFormPr
       targetMode,
       lessonIds: selectedLessonIds(),
       targetLabel: targetLabel(),
+      academyId: requiredTrack === "basics" ? academyId : undefined,
+      typingLevel:
+        requiredTrack === "basics" ? typingLevel || undefined : undefined,
+      curriculumLevel:
+        requiredTrack === "basics" ? curriculumLevel || undefined : undefined,
       requiredLevel: optionalNumber(requiredLevel),
       minWpm: optionalNumber(minWpm),
       minAccuracy: optionalNumber(minAccuracy),
@@ -146,6 +191,50 @@ export function AssignmentForm({ classId, onCreate, onCancel }: AssignmentFormPr
             />
           </label>
         </div>
+
+        {requiredTrack === "basics" && (
+          <div className="grid gap-4 sm:grid-cols-3">
+            <label className={labelClass}>
+              Academy
+              <select
+                className={inputClass}
+                value={academyId}
+                onChange={(event) => {
+                  setAcademyId(event.target.value as AcademyId);
+                  setSelectedLessonId("");
+                }}
+              >
+                {getAcademies().map((academy) => (
+                  <option key={academy.id} value={academy.id}>{academy.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className={labelClass}>
+              Typing difficulty
+              <select className={inputClass} value={typingLevel} onChange={(event) => setTypingLevel(event.target.value as TypingLevel | "")}>
+                <option value="">Any</option>
+                {TYPING_LEVELS.map((level) => (
+                  <option key={level.id} value={level.id}>Level {level.level}: {level.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className={labelClass}>
+              Curriculum difficulty
+              <select className={inputClass} value={curriculumLevel} onChange={(event) => setCurriculumLevel(event.target.value as CurriculumLevel | "")}>
+                <option value="">Any</option>
+                {CURRICULUM_LEVELS.map((level) => (
+                  <option key={level.id} value={level.id}>Level {level.level}: {level.name}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        )}
+
+        {lessons.length === 0 && (
+          <p role="alert" className="rounded-button border border-danger/20 bg-danger-light px-3 py-2 text-sm font-semibold text-danger">
+            No published lessons match this Academy and difficulty combination. Change a filter before creating the assignment.
+          </p>
+        )}
 
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-faint">
           Assignment type
@@ -315,7 +404,7 @@ export function AssignmentForm({ classId, onCreate, onCancel }: AssignmentFormPr
         </div>
 
         <div className="flex gap-3">
-          <Button type="submit">Create assignment</Button>
+          <Button type="submit" disabled={lessons.length === 0}>Create assignment</Button>
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>

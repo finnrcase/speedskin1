@@ -65,6 +65,9 @@ export interface AssignmentRow {
   target_mode: string | null;
   lesson_ids: string[] | null;
   target_label: string | null;
+  academy_id: string | null;
+  typing_level: string | null;
+  curriculum_level: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -95,6 +98,27 @@ export interface ProgressLogRow {
   mistakes: number;
   date: string;
   created_at: string;
+}
+
+export interface LessonAttemptRow {
+  id: string;
+  user_id: string;
+  lesson_id: string;
+  academy_id: string;
+  think_response: string;
+  quiz_answers: Json;
+  quiz_correct: number;
+  quiz_total: number;
+  quiz_percentage: number;
+  wpm: number;
+  accuracy: number;
+  mistakes: number;
+  duration_seconds: number;
+  correct_chars: number;
+  total_chars: number;
+  xp_earned: number;
+  started_at: string;
+  completed_at: string;
 }
 
 export interface ShortcutSkillProgressRow {
@@ -188,6 +212,9 @@ export type Database = {
           target_mode?: string | null;
           lesson_ids?: string[] | null;
           target_label?: string | null;
+          academy_id?: string | null;
+          typing_level?: string | null;
+          curriculum_level?: string | null;
           created_by: string;
         }
       >;
@@ -218,6 +245,29 @@ export type Database = {
           duration_seconds: number;
           mistakes: number;
           date?: string;
+        }
+      >;
+      lesson_attempts: TableDef<
+        LessonAttemptRow,
+        {
+          id?: string;
+          user_id: string;
+          lesson_id: string;
+          academy_id: string;
+          think_response: string;
+          quiz_answers: Json;
+          quiz_correct: number;
+          quiz_total: number;
+          quiz_percentage: number;
+          wpm: number;
+          accuracy: number;
+          mistakes: number;
+          duration_seconds: number;
+          correct_chars: number;
+          total_chars: number;
+          xp_earned: number;
+          started_at: string;
+          completed_at: string;
         }
       >;
       shortcut_skill_progress: TableDef<

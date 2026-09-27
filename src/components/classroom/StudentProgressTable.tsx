@@ -3,6 +3,7 @@ import {
   evalContextFromStudent,
   evaluateAssignment,
   keyLabel,
+  keyboardHealthForStudent,
 } from "@/lib/classroom/evaluate";
 import type { Assignment, Student, StudentStatus } from "@/lib/data/types";
 import { shortcutLabel } from "@/lib/shortcuts/catalog";
@@ -52,6 +53,7 @@ export function StudentProgressTable({
             <th className="px-3 py-3">Level</th>
             <th className="px-3 py-3">WPM</th>
             <th className="px-3 py-3">Acc.</th>
+            <th className="px-3 py-3">Health</th>
             <th className="px-3 py-3">Lessons</th>
             <th className="px-3 py-3">Practice</th>
             <th className="px-3 py-3">Last active</th>
@@ -93,6 +95,9 @@ export function StudentProgressTable({
                   {s.wpm}
                 </td>
                 <td className="px-3 py-3 tabular-nums text-ink">{s.accuracy}%</td>
+                <td className="px-3 py-3 font-semibold tabular-nums text-ink">
+                  {keyboardHealthForStudent(s)}
+                </td>
                 <td className="px-3 py-3 tabular-nums text-ink">
                   {s.lessonsCompleted}
                 </td>

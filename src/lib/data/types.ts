@@ -28,6 +28,62 @@ export type PromptTopic =
 /** Learning paths shown as separate tracks in the UI. */
 export type LessonTrack = "basics" | "python" | "shortcuts";
 
+export type AcademyId =
+  | "keyboard"
+  | "language"
+  | "chromebook"
+  | "digital"
+  | "communication"
+  | "people"
+  | "money"
+  | "life";
+
+export type GradeBand = "3-5" | "6-8" | "9-12" | "any";
+export type CurriculumLevel =
+  | "foundation"
+  | "developing"
+  | "applied"
+  | "analytical"
+  | "synthesis";
+export type TypingLevel =
+  | "beginner"
+  | "full-alphabet"
+  | "intermediate"
+  | "punctuation"
+  | "numbers-symbols"
+  | "real-world"
+  | "fluency"
+  | "advanced";
+export type CurriculumLessonStatus = "draft" | "published" | "archived";
+export type LessonStage = "learn" | "type" | "think" | "check" | "score";
+
+export interface Academy {
+  id: AcademyId;
+  name: string;
+  shortName: string;
+  description: string;
+  topics: string[];
+  order: number;
+}
+
+export interface QuizChoice {
+  id: string;
+  label: string;
+}
+
+export interface QuizQuestion {
+  id: string;
+  prompt: string;
+  choices: QuizChoice[];
+  correctChoiceId: string;
+  explanation: string;
+}
+
+export interface VocabularyItem {
+  term: string;
+  definition: string;
+}
+
 export type LessonStatus = "completed" | "current" | "locked" | "available";
 
 export type UserRole = "student" | "teacher" | "admin";
@@ -61,6 +117,88 @@ export interface Lesson {
   estimatedMinutes: number;
   /** Optional time budget for timed challenges, in seconds. */
   timeLimitSeconds?: number;
+}
+
+/**
+ * A reusable Academy lesson. Legacy Python lessons intentionally keep using
+ * `Lesson`; Academy lessons add structured curriculum without changing the IDs
+ * used by existing typing progress.
+ */
+export interface CurriculumLesson extends Lesson {
+  slug: string;
+  academy: AcademyId;
+  broadTrack: AcademyId;
+  specificTopic: string;
+  unitId: string;
+  gradeBand: GradeBand;
+  curriculumLevel: CurriculumLevel;
+  typingLevel: TypingLevel;
+  typingObjective: string;
+  targetedTypingSkills: string[];
+  learningOutcome: string;
+  miniLesson: string;
+  typingPassage: string;
+  thinkPrompt: string;
+  thinkMinLength?: number;
+  thinkMaxLength?: number;
+  quizBank: QuizQuestion[];
+  vocabulary: VocabularyItem[];
+  tags: string[];
+  estimatedTime: number;
+  xpValue: number;
+  mastery: LessonMasteryCriteria;
+  prerequisiteLessonIds?: string[];
+  isCore: boolean;
+  sequence: number;
+  status: CurriculumLessonStatus;
+  locale?: string;
+  relatedPracticeHref?: string;
+}
+
+export interface LessonMasteryCriteria {
+  targetAccuracy: number;
+  targetQuizPercentage: number;
+  minimumSuccessfulAttempts: number;
+}
+
+export interface QuizAnswer {
+  questionId: string;
+  selectedChoiceId: string;
+  correct: boolean;
+}
+
+export interface LessonScore {
+  correctAnswers: number;
+  totalQuestions: number;
+  percentage: number;
+}
+
+export interface LessonAttempt {
+  id: string;
+  lessonId: string;
+  academy: AcademyId;
+  startedAt: string;
+  completedAt: string;
+  thinkResponse: string;
+  quizAnswers: QuizAnswer[];
+  quizScore: LessonScore;
+  typingResult: {
+    wpm: number;
+    accuracy: number;
+    mistakes: number;
+    elapsedMs: number;
+    correctChars: number;
+    totalChars: number;
+  };
+  xpEarned: number;
+}
+
+export interface AcademyProgress {
+  academy: AcademyId;
+  completed: number;
+  total: number;
+  percentage: number;
+  nextLessonId: string | null;
 }
 
 export interface LessonProgress {
@@ -112,6 +250,8 @@ export interface Student {
   streakDays: number;
   lastActive: string;
   status: StudentStatus;
+  /** Deterministic 0-100 metric derived from accuracy, progress, and weak keys. */
+  keyboardHealth?: number;
 }
 
 export interface CurrentUser {
@@ -134,6 +274,8 @@ export interface CurrentUser {
   weakKeys: string[];
   weakShortcuts: ShortcutId[];
   currentLessonId: string;
+  xp?: number;
+  keyboardHealth?: number;
 }
 
 // ---- Keyboard shortcut learning ----
@@ -259,6 +401,9 @@ export interface Assignment {
   minShortcutLessons?: number;
   /** Optional keyboard shortcut requirement: class/student mastery percentage. */
   minShortcutMasteryPct?: number;
+  academyId?: AcademyId;
+  typingLevel?: TypingLevel;
+  curriculumLevel?: CurriculumLevel;
 }
 
 /** A single practice session — the shape of a future `progress_logs` row. */

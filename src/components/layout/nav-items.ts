@@ -19,7 +19,7 @@ export interface NavItem {
 
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Home", Icon: House, roles: ["student"] },
-  { href: "/courses", label: "Learn", Icon: BookOpen, roles: ["student"] },
+  { href: "/academies", label: "Academies", Icon: BookOpen, roles: ["student"] },
   {
     href: "/homework",
     label: "Homework",
@@ -43,12 +43,18 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 /** Course paths roll up under the single "Courses" nav item. */
-const COURSE_PREFIXES = ["/courses", "/lesson", "/shortcuts"];
+const COURSE_PREFIXES = [
+  "/academies",
+  "/free-play",
+  "/courses",
+  "/lesson",
+  "/shortcuts",
+];
 
 /** Whether a nav item should be highlighted for the current pathname. */
 export function isActive(href: string, pathname: string): boolean {
   if (href === "/") return pathname === "/";
-  if (href === "/courses") {
+  if (href === "/academies") {
     return COURSE_PREFIXES.some(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     );

@@ -9,6 +9,7 @@ import { LessonCard } from "@/components/lessons/LessonCard";
 import { LearningJourney } from "@/components/lessons/LearningJourney";
 import { buttonClasses } from "@/components/ui/Button";
 import {
+  getLegacyTypingLessons,
   getLessonsByTrack,
 } from "@/lib/data";
 import type { Lesson } from "@/lib/data/types";
@@ -66,7 +67,7 @@ function CourseCard({
 }
 
 export default function LessonListPage() {
-  const basics = getLessonsByTrack("basics");
+  const basics = getLegacyTypingLessons();
   const python = getLessonsByTrack("python");
   const { user, getLessonProgress } = useUserProgress();
   const completionPct = (user.lessonsCompleted / user.totalLessons) * 100;

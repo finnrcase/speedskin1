@@ -10,6 +10,7 @@ import {
   Download,
   Gauge,
   KeyRound,
+  HeartPulse,
   Plus,
   RefreshCcw,
   ShieldCheck,
@@ -82,7 +83,7 @@ export default function TeacherPage() {
     URL.revokeObjectURL(url);
   };
 
-  const behindCount = students.filter((student) => student.status === "needs-practice").length;
+  const attentionCount = students.length - stats.studentsOnPace;
 
   return (
     <div className="space-y-7">
@@ -117,7 +118,7 @@ export default function TeacherPage() {
           <div className="rounded-button border border-line bg-cream p-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-ink">
               <ShieldCheck className="size-4 text-brand" strokeWidth={1.8} aria-hidden />
-              {behindCount} need attention
+              {attentionCount} need attention
             </div>
           </div>
           <div className="rounded-button border border-line bg-cream p-3">
@@ -233,6 +234,14 @@ export default function TeacherPage() {
       {/* Class overview cards */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
+          label="Keyboard Health"
+          value={stats.averageKeyboardHealth}
+          icon={HeartPulse}
+          tone="brand"
+          detail="Accuracy, progress, and weak keys"
+          progress={stats.averageKeyboardHealth}
+        />
+        <StatCard
           label="Avg speed"
           value={stats.averageWpm}
           unit="wpm"
@@ -317,8 +326,10 @@ export default function TeacherPage() {
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">
             Students needing help
           </p>
-          <p className="text-2xl font-bold text-ink">{behindCount}</p>
-          <p className="text-sm text-ink-soft">Based on accuracy and practice status.</p>
+          <p className="text-2xl font-bold text-ink">{attentionCount}</p>
+          <p className="text-sm text-ink-soft">
+            {stats.studentsOnPace} on pace · {stats.needingAccuracyPractice} need accuracy practice · {stats.significantlyBehind} significantly behind · {stats.otherPracticeNeeds} need other practice.
+          </p>
         </Card>
         <Card className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">

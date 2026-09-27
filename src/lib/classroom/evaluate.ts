@@ -11,6 +11,10 @@ import type {
   Student,
 } from "@/lib/data/types";
 import { shortcutLabel } from "@/lib/shortcuts/catalog";
+import {
+  calculateKeyboardHealth,
+  getCurriculumLessons,
+} from "@/lib/curriculum";
 
 export function evalContextFromStudent(s: Student): EvalContext {
   return {
@@ -210,6 +214,37 @@ export interface ClassStats {
   averageShortcutMasteryPct: number;
   averageShortcutReactionMs: number;
   mostMissedShortcuts: Student["weakShortcuts"];
+  averageKeyboardHealth: number;
+  studentsOnPace: number;
+  needingAccuracyPractice: number;
+  significantlyBehind: number;
+  otherPracticeNeeds: number;
+}
+
+export type StudentAttention =
+  | "on-pace"
+  | "needs-accuracy-practice"
+  | "significantly-behind"
+  | "other-practice";
+
+/** Mutually exclusive, deterministic teacher-attention classification. */
+export function classifyStudentAttention(student: Student): StudentAttention {
+  if (
+    student.status === "needs-practice" &&
+    numberOrZero(student.lessonsCompleted) < 2
+  ) return "significantly-behind";
+  if (numberOrZero(student.accuracy) < 90) return "needs-accuracy-practice";
+  if (student.status === "needs-practice") return "other-practice";
+  return "on-pace";
+}
+
+export function keyboardHealthForStudent(student: Student): number {
+  return student.keyboardHealth ?? calculateKeyboardHealth({
+    averageAccuracy: numberOrZero(student.accuracy),
+    completedLessons: numberOrZero(student.lessonsCompleted),
+    totalLessons: getCurriculumLessons().length,
+    weakKeyCount: Array.isArray(student.weakKeys) ? student.weakKeys.length : 0,
+  });
 }
 
 function average(values: number[]): number {
@@ -232,6 +267,7 @@ export function computeClassStats(students: Student[]): ClassStats {
       shortcutCounts.set(shortcutId, (shortcutCounts.get(shortcutId) ?? 0) + 1);
     }
   }
+  const attention = students.map(classifyStudentAttention);
 
   return {
     averageWpm: average(students.map((s) => numberOrZero(s.wpm))),
@@ -253,5 +289,14 @@ export function computeClassStats(students: Student[]): ClassStats {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)
       .map(([shortcutId]) => shortcutId),
+    averageKeyboardHealth: average(students.map(keyboardHealthForStudent)),
+    studentsOnPace: attention.filter((item) => item === "on-pace").length,
+    needingAccuracyPractice: attention.filter(
+      (item) => item === "needs-accuracy-practice",
+    ).length,
+    significantlyBehind: attention.filter(
+      (item) => item === "significantly-behind",
+    ).length,
+    otherPracticeNeeds: attention.filter((item) => item === "other-practice").length,
   };
 }

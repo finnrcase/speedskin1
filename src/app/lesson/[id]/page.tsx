@@ -3,8 +3,13 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Code2, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { LessonRunner } from "@/components/lessons/LessonRunner";
+import { AcademyLessonRunner } from "@/components/lessons/AcademyLessonRunner";
 import { generatePrompt } from "@/lib/typing/prompt-generator";
 import { getLessonById, getLessons } from "@/lib/data";
+import {
+  getAcademyById,
+  getCurriculumLessonById,
+} from "@/lib/curriculum";
 
 export default async function LessonPage({
   params,
@@ -14,6 +19,42 @@ export default async function LessonPage({
   const { id } = await params;
   const lesson = getLessonById(id);
   if (!lesson) notFound();
+
+  const curriculumLesson = getCurriculumLessonById(lesson.id);
+  if (curriculumLesson) {
+    const academy = getAcademyById(curriculumLesson.academy);
+    return (
+      <div className="space-y-6">
+        <Link
+          href="/academies"
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink-soft hover:text-ink"
+        >
+          <ArrowLeft className="size-4" strokeWidth={1.8} aria-hidden />
+          All Academies
+        </Link>
+
+        <header className="warm-panel rounded-card border border-brand/15 p-5 shadow-[0_12px_30px_rgba(88,64,38,0.07)] sm:p-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="brand">{academy.name}</Badge>
+            <Badge tone="neutral">{curriculumLesson.gradeBand}</Badge>
+            <Badge tone="info">{curriculumLesson.estimatedTime} min</Badge>
+          </div>
+          <h1 className="mt-3 text-3xl font-bold tracking-tight text-ink">
+            {curriculumLesson.title}
+          </h1>
+          <p className="mt-2 max-w-2xl text-ink-soft">
+            {curriculumLesson.specificTopic} · {curriculumLesson.typingObjective}
+          </p>
+        </header>
+
+        <AcademyLessonRunner
+          key={curriculumLesson.id}
+          lesson={curriculumLesson}
+          academyName={academy.shortName}
+        />
+      </div>
+    );
+  }
 
   const lessons = getLessons();
   const next = lessons.find((l) => l.order === lesson.order + 1);

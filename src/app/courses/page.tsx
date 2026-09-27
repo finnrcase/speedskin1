@@ -13,7 +13,11 @@ import {
   FUTURE_COURSES,
   type Course,
 } from "@/lib/courses";
-import { getLessonsByTrack, getShortcutLessons } from "@/lib/data";
+import {
+  getLegacyTypingLessons,
+  getLessonsByTrack,
+  getShortcutLessons,
+} from "@/lib/data";
 import { useUserProgress } from "@/lib/progress/UserProgressProvider";
 
 interface CourseProgress {
@@ -29,7 +33,10 @@ export default function CoursesPage() {
 
   const progressFor = (course: Course): CourseProgress => {
     if (course.source.type === "typing") {
-      const lessons = getLessonsByTrack(course.source.track);
+      const lessons =
+        course.source.track === "basics"
+          ? getLegacyTypingLessons()
+          : getLessonsByTrack(course.source.track);
       const completed = lessons.filter(
         (l) => getLessonProgress(l.id).status === "completed",
       ).length;

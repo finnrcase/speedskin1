@@ -18,6 +18,7 @@ import {
   type AchievementContext,
 } from "@/lib/mock/achievements";
 import { CURRENT_USER } from "@/lib/mock/currentUser";
+import { getCurriculumLessonById } from "@/lib/curriculum";
 import type {
   Achievement,
   CurrentUser,
@@ -37,6 +38,14 @@ export function getLessons(): Lesson[] {
 
 export function getLessonsByTrack(track: LessonTrack): Lesson[] {
   return getLessons().filter((lesson) => lesson.track === track);
+}
+
+/** Keyboard Academy plus retained classic drills, excluding other Academies. */
+export function getLegacyTypingLessons(): Lesson[] {
+  return getLessonsByTrack("basics").filter((lesson) => {
+    const curriculumLesson = getCurriculumLessonById(lesson.id);
+    return !curriculumLesson || curriculumLesson.academy === "keyboard";
+  });
 }
 
 export function getPythonLessons(): Lesson[] {
@@ -89,10 +98,6 @@ export function getShortcutSkillProgress(): ShortcutSkillProgress[] {
 
 export function getCurrentUser(): CurrentUser {
   return CURRENT_USER;
-}
-
-export function getCurrentLesson(): Lesson | undefined {
-  return getLessonById(CURRENT_USER.currentLessonId);
 }
 
 function maxProgressValue(field: "bestWpm" | "bestAccuracy"): number {

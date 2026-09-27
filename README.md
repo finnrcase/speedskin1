@@ -57,7 +57,7 @@ Do not commit `.env`, `.env.local`, OAuth client secrets, Supabase service-role 
 
 1. Create a Supabase project.
 2. Add `NEXT_PUBLIC_SUPABASE_URL` and either `NEXT_PUBLIC_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to `.env.local`.
-3. Run `supabase/migrations/001_auth_classroom_progress.sql` in the Supabase SQL editor or with the Supabase CLI.
+3. Apply every migration in `supabase/migrations` in numeric order with the Supabase CLI or SQL editor.
 4. Confirm these tables exist:
    - `profiles`
    - `classrooms`
@@ -68,6 +68,7 @@ Do not commit `.env`, `.env.local`, OAuth client secrets, Supabase service-role 
    - `shortcut_skill_progress`
    - `shortcut_lesson_progress`
    - `shortcut_attempts`
+   - `lesson_attempts`
 5. Confirm Row Level Security is enabled.
 
 The migration includes profile roles, class joining, lesson progress, shortcut mastery tracking, assignment data, and RLS policies for students, teachers, admins, and unauthenticated users.
@@ -169,7 +170,7 @@ existing builds).
 
 ### 2. Database
 
-The schema lives in `supabase/migrations/001…004`. Apply it with the Supabase
+The schema lives in `supabase/migrations/001…008`. Apply it with the Supabase
 CLI (`supabase db push`) or by pasting each file into the SQL editor in order.
 
 ### 3. Google OAuth setup

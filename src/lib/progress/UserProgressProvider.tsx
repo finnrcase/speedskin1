@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { CURRENT_USER } from "@/lib/mock/currentUser";
@@ -13,8 +14,10 @@ import { useAuth } from "@/lib/auth/AuthProvider";
 import {
   getLessons,
   getShortcutLessons,
+  type CurriculumLesson,
   type CurrentUser,
   type Lesson,
+  type LessonAttempt,
   type LessonProgress,
   type LessonStatus,
   type LessonTrack,
@@ -31,7 +34,17 @@ import type {
   LessonProgressRow,
   ShortcutLessonProgressRow,
   ShortcutSkillProgressRow,
+  LessonAttemptRow,
 } from "@/lib/supabase/types";
+import {
+  calculateKeyboardHealth,
+  calculateStreak,
+  calculateTotalXp,
+  getCurriculumLessonById,
+  getCurriculumLessons,
+  getLessonsByAcademy,
+  getNextAcademyLesson,
+} from "@/lib/curriculum";
 
 interface LessonProgressRecord extends LessonProgress {
   track: LessonTrack;
@@ -45,9 +58,16 @@ interface UserProgressContextValue {
   lessonProgress: Record<string, LessonProgressRecord>;
   shortcutLessonProgress: Record<string, ShortcutProgress>;
   shortcutSkillProgress: ShortcutSkillProgress[];
+  academyAttempts: LessonAttempt[];
+  xp: number;
+  keyboardHealth: number;
   getLessonProgress: (lessonId: string) => LessonProgress;
   getShortcutLessonProgress: (lessonId: string) => ShortcutProgress;
   recordLessonResult: (lesson: Lesson, result: TypingResult) => void;
+  recordCurriculumAttempt: (
+    lesson: CurriculumLesson,
+    attempt: LessonAttempt,
+  ) => Promise<boolean>;
   recordShortcutAttempt: (
     lessonId: string,
     attempt: ShortcutAttempt,
@@ -120,11 +140,67 @@ function shortcutLessonFromRow(row: ShortcutLessonProgressRow): ShortcutProgress
   };
 }
 
-function emptyLessonProgress(lesson: Lesson, completedOrder: number): LessonProgressRecord {
-  let status: LessonStatus = "locked";
-  if (lesson.order <= completedOrder + 1) {
-    status = lesson.order === completedOrder + 1 ? "current" : "available";
-  }
+function lessonAttemptFromRow(row: LessonAttemptRow): LessonAttempt {
+  const rawAnswers = Array.isArray(row.quiz_answers) ? row.quiz_answers : [];
+  const quizAnswers = rawAnswers.flatMap((value) => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+    const questionId = value.questionId;
+    const selectedChoiceId = value.selectedChoiceId;
+    const correct = value.correct;
+    if (
+      typeof questionId !== "string" ||
+      typeof selectedChoiceId !== "string" ||
+      typeof correct !== "boolean"
+    ) return [];
+    return [{ questionId, selectedChoiceId, correct }];
+  });
+  return {
+    id: row.id,
+    lessonId: row.lesson_id,
+    academy: row.academy_id as LessonAttempt["academy"],
+    startedAt: row.started_at,
+    completedAt: row.completed_at,
+    thinkResponse: row.think_response,
+    quizAnswers,
+    quizScore: {
+      correctAnswers: row.quiz_correct,
+      totalQuestions: row.quiz_total,
+      percentage: row.quiz_percentage,
+    },
+    typingResult: {
+      wpm: row.wpm,
+      accuracy: row.accuracy,
+      mistakes: row.mistakes,
+      elapsedMs: row.duration_seconds * 1000,
+      correctChars: row.correct_chars,
+      totalChars: row.total_chars,
+    },
+    xpEarned: row.xp_earned,
+  };
+}
+
+function lessonSequence(lesson: Lesson): Lesson[] {
+  const curriculumLesson = getCurriculumLessonById(lesson.id);
+  if (curriculumLesson) return getLessonsByAcademy(curriculumLesson.academy);
+  return getLessons()
+    .filter((candidate) => {
+      if (candidate.track !== lesson.track) return false;
+      const curriculumCandidate = getCurriculumLessonById(candidate.id);
+      return !curriculumCandidate || curriculumCandidate.academy === "keyboard";
+    })
+    .sort((a, b) => a.order - b.order);
+}
+
+function emptyLessonProgress(
+  lesson: Lesson,
+  saved: Record<string, LessonProgressRecord>,
+): LessonProgressRecord {
+  const sequence = lessonSequence(lesson);
+  const index = sequence.findIndex((candidate) => candidate.id === lesson.id);
+  const prerequisitesComplete = sequence
+    .slice(0, Math.max(0, index))
+    .every((candidate) => saved[candidate.id]?.status === "completed");
+  const status: LessonStatus = prerequisitesComplete ? "current" : "locked";
   return {
     lessonId: lesson.id,
     status,
@@ -180,7 +256,11 @@ function deriveUser({
   const completedLessons = Object.values(lessonProgress).filter(
     (p) => p.status === "completed",
   );
-  const completedTyping = completedLessons.filter((p) => p.track === "basics");
+  const completedTyping = completedLessons.filter((progress) => {
+    if (progress.track !== "basics") return false;
+    const curriculumLesson = getCurriculumLessonById(progress.lessonId);
+    return !curriculumLesson || curriculumLesson.academy === "keyboard";
+  });
   const completedPython = completedLessons.filter((p) => p.track === "python");
   const completedShortcuts = Object.values(shortcutLessonProgress).filter(
     (p) => p.status === "completed",
@@ -239,7 +319,7 @@ function deriveUser({
     name: profileName,
     avatar: initials(profileName),
     level: highestCompletedLevel,
-    streakDays: completedLessons.length ? 1 : 0,
+    streakDays: 0,
     lessonsCompleted: completedLessons.length,
     completedLessonIds,
     pythonLessonsCompleted: completedPython.length,
@@ -268,6 +348,9 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
   const [shortcutSkillProgress, setShortcutSkillProgress] = useState<
     ShortcutSkillProgress[]
   >(defaultShortcutSkillProgress());
+  const [academyAttempts, setAcademyAttempts] = useState<LessonAttempt[]>([]);
+  const recordedAttemptIdsRef = useRef(new Set<string>());
+  const skipLocalPersistenceRef = useRef(false);
   const [ready, setReady] = useState(false);
 
   const userId = profile?.id ?? "guest";
@@ -284,6 +367,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
 
     let active = true;
     const activeProfile = profile;
+    skipLocalPersistenceRef.current = true;
 
     async function load() {
       if (!supabase || isDemoProfile) {
@@ -296,6 +380,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
               lessonProgress?: Record<string, LessonProgressRecord>;
               shortcutLessonProgress?: Record<string, ShortcutProgress>;
               shortcutSkillProgress?: ShortcutSkillProgress[];
+              academyAttempts?: LessonAttempt[];
             };
             if (!active) return;
             setLessonProgress(parsed.lessonProgress ?? {});
@@ -303,15 +388,30 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
             setShortcutSkillProgress(
               mergeShortcutSkills(parsed.shortcutSkillProgress ?? []),
             );
+            const savedAttempts = parsed.academyAttempts ?? [];
+            setAcademyAttempts(savedAttempts);
+            recordedAttemptIdsRef.current = new Set(
+              savedAttempts.map((attempt) => attempt.id),
+            );
+          } else {
+            setLessonProgress({});
+            setShortcutLessonProgress({});
+            setShortcutSkillProgress(defaultShortcutSkillProgress());
+            setAcademyAttempts([]);
+            recordedAttemptIdsRef.current = new Set();
           }
         } catch {
-          // Fall back to a fresh local progress state.
+          setLessonProgress({});
+          setShortcutLessonProgress({});
+          setShortcutSkillProgress(defaultShortcutSkillProgress());
+          setAcademyAttempts([]);
+          recordedAttemptIdsRef.current = new Set();
         }
         if (active) setReady(true);
         return;
       }
 
-      const [lessonRows, shortcutLessonRows, shortcutSkillRows] =
+      const [lessonRows, shortcutLessonRows, shortcutSkillRows, attemptRows] =
         await Promise.all([
           supabase
             .from("lesson_progress")
@@ -325,6 +425,11 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
             .from("shortcut_skill_progress")
             .select("*")
             .eq("user_id", activeProfile.id),
+          supabase
+            .from("lesson_attempts")
+            .select("*")
+            .eq("user_id", activeProfile.id)
+            .order("completed_at", { ascending: false }),
         ]);
 
       if (!active) return;
@@ -350,6 +455,11 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
           (shortcutSkillRows.data ?? []).map(shortcutSkillFromRow),
         ),
       );
+      const loadedAttempts = (attemptRows.data ?? []).map(lessonAttemptFromRow);
+      setAcademyAttempts(loadedAttempts);
+      recordedAttemptIdsRef.current = new Set(
+        loadedAttempts.map((attempt) => attempt.id),
+      );
       setReady(true);
     }
 
@@ -363,6 +473,10 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (status !== "authenticated" || !profile) return;
     if (supabase && !isDemoProfile) return;
+    if (skipLocalPersistenceRef.current) {
+      skipLocalPersistenceRef.current = false;
+      return;
+    }
     try {
       window.localStorage.setItem(
         `${LOCAL_PROGRESS_PREFIX}${profile.id}`,
@@ -370,6 +484,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
           lessonProgress,
           shortcutLessonProgress,
           shortcutSkillProgress,
+          academyAttempts,
         }),
       );
     } catch {
@@ -377,6 +492,7 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
     }
   }, [
     isDemoProfile,
+    academyAttempts,
     lessonProgress,
     profile,
     shortcutLessonProgress,
@@ -384,15 +500,6 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
     status,
     supabase,
   ]);
-
-  const completedLessonOrder = useMemo(() => {
-    const lessons = getLessons();
-    return Object.values(lessonProgress).reduce((max, progress) => {
-      if (progress.status !== "completed") return max;
-      const lesson = lessons.find((item) => item.id === progress.lessonId);
-      return lesson ? Math.max(max, lesson.order) : max;
-    }, 0);
-  }, [lessonProgress]);
 
   const completedShortcutOrder = useMemo(() => {
     const lessons = getShortcutLessons();
@@ -418,9 +525,9 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
           minutesPracticed: 0,
         };
       }
-      return lessonProgress[lessonId] ?? emptyLessonProgress(lesson, completedLessonOrder);
+      return lessonProgress[lessonId] ?? emptyLessonProgress(lesson, lessonProgress);
     },
-    [completedLessonOrder, lessonProgress],
+    [lessonProgress],
   );
 
   const getShortcutLessonProgress = useCallback(
@@ -531,6 +638,57 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
     [isDemoProfile, profile, shortcutSkillProgress, supabase],
   );
 
+  const recordCurriculumAttempt = useCallback(
+    async (lesson: CurriculumLesson, attempt: LessonAttempt) => {
+      if (!profile) return false;
+      if (recordedAttemptIdsRef.current.has(attempt.id)) return true;
+      recordedAttemptIdsRef.current.add(attempt.id);
+
+      if (supabase && !isDemoProfile) {
+        try {
+          const { error } = await supabase.from("lesson_attempts").insert({
+            id: attempt.id,
+            user_id: profile.id,
+            lesson_id: lesson.id,
+            academy_id: lesson.academy,
+            think_response: attempt.thinkResponse,
+            quiz_answers: attempt.quizAnswers,
+            quiz_correct: attempt.quizScore.correctAnswers,
+            quiz_total: attempt.quizScore.totalQuestions,
+            quiz_percentage: attempt.quizScore.percentage,
+            wpm: attempt.typingResult.wpm,
+            accuracy: attempt.typingResult.accuracy,
+            mistakes: attempt.typingResult.mistakes,
+            duration_seconds: Math.max(
+              1,
+              Math.round(attempt.typingResult.elapsedMs / 1000),
+            ),
+            correct_chars: attempt.typingResult.correctChars,
+            total_chars: attempt.typingResult.totalChars,
+            xp_earned: attempt.xpEarned,
+            started_at: attempt.startedAt,
+            completed_at: attempt.completedAt,
+          });
+          if (error) {
+            recordedAttemptIdsRef.current.delete(attempt.id);
+            return false;
+          }
+        } catch {
+          recordedAttemptIdsRef.current.delete(attempt.id);
+          return false;
+        }
+      }
+
+      recordLessonResult(lesson, attempt.typingResult);
+      setAcademyAttempts((current) => {
+        if (current.some((item) => item.id === attempt.id)) return current;
+        return [attempt, ...current];
+      });
+      return true;
+    },
+    [isDemoProfile, profile, recordLessonResult, supabase],
+  );
+
   const recordShortcutLessonResult = useCallback(
     (
       lesson: ShortcutLesson,
@@ -572,8 +730,13 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
     ],
   );
 
+  const xp = useMemo(
+    () => calculateTotalXp(academyAttempts),
+    [academyAttempts],
+  );
+
   const user = useMemo(() => {
-    if (!profile) return CURRENT_USER;
+    if (!profile) return { ...CURRENT_USER, xp: 0 };
     const allLessonProgress = Object.fromEntries(
       getLessons().map((lesson) => [lesson.id, getLessonProgress(lesson.id)]),
     );
@@ -583,20 +746,53 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
         getShortcutLessonProgress(lesson.id),
       ]),
     );
-    return deriveUser({
+    const baseUser = deriveUser({
       profileName: profile.fullName,
       userId,
       lessonProgress: allLessonProgress,
       shortcutLessonProgress: allShortcutLessonProgress,
       shortcutSkillProgress,
     });
+    const attemptStreak = calculateStreak(
+      academyAttempts.map((attempt) => attempt.completedAt),
+    );
+    const completedLessonIds = [
+      ...new Set([
+        ...baseUser.completedLessonIds,
+        ...academyAttempts.map((attempt) => attempt.lessonId),
+      ]),
+    ];
+    return {
+      ...baseUser,
+      xp,
+      streakDays: attemptStreak || baseUser.streakDays,
+      lessonsCompleted: completedLessonIds.length,
+      completedLessonIds,
+      currentLessonId:
+        getNextAcademyLesson(completedLessonIds)?.id ?? baseUser.currentLessonId,
+    };
   }, [
     getLessonProgress,
     getShortcutLessonProgress,
+    academyAttempts,
     profile,
     shortcutSkillProgress,
     userId,
+    xp,
   ]);
+
+  const keyboardHealth = useMemo(
+    () =>
+      calculateKeyboardHealth({
+        averageAccuracy: user.averageAccuracy,
+        completedLessons: getCurriculumLessons().filter((lesson) =>
+          user.completedLessonIds.includes(lesson.id),
+        ).length,
+        totalLessons: getCurriculumLessons().length,
+        weakKeyCount: user.weakKeys.length,
+      }),
+    [user],
+  );
 
   const summaryForUser = useCallback(
     (targetUserId?: string) => {
@@ -613,9 +809,13 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
       lessonProgress,
       shortcutLessonProgress,
       shortcutSkillProgress,
+      academyAttempts,
+      xp,
+      keyboardHealth,
       getLessonProgress,
       getShortcutLessonProgress,
       recordLessonResult,
+      recordCurriculumAttempt,
       recordShortcutAttempt,
       recordShortcutLessonResult,
       summaryForUser,
@@ -624,14 +824,18 @@ export function UserProgressProvider({ children }: { children: React.ReactNode }
       getLessonProgress,
       getShortcutLessonProgress,
       lessonProgress,
+      academyAttempts,
+      keyboardHealth,
       ready,
       recordLessonResult,
+      recordCurriculumAttempt,
       recordShortcutAttempt,
       recordShortcutLessonResult,
       shortcutLessonProgress,
       shortcutSkillProgress,
       summaryForUser,
       user,
+      xp,
     ],
   );
 

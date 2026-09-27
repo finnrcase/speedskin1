@@ -1,4 +1,5 @@
 import type { Lesson, LessonProgress } from "@/lib/data/types";
+import { CURRICULUM_LESSONS } from "@/lib/curriculum/lessons";
 
 /*
   Two learning paths:
@@ -8,7 +9,7 @@ import type { Lesson, LessonProgress } from "@/lib/data/types";
   Each lesson carries a fixed sampleText as a readable example; the actual
   prompts are generated per attempt from `category` + `promptTopic`.
 */
-export const LESSONS: Lesson[] = [
+const LEGACY_LESSONS: Lesson[] = [
   {
     id: "l1-home-row-letters",
     level: 1,
@@ -175,6 +176,18 @@ export const LESSONS: Lesson[] = [
     sampleText: 'def greet(name):\n    print("Hi", name)',
     estimatedMinutes: 7,
   },
+];
+
+const curriculumIds = new Set(CURRICULUM_LESSONS.map((lesson) => lesson.id));
+
+/**
+ * Academy lessons replace matching legacy objects in-place, preserving IDs and
+ * existing progress. Python and the remaining classic drills stay available as
+ * specialized practice.
+ */
+export const LESSONS: Lesson[] = [
+  ...CURRICULUM_LESSONS,
+  ...LEGACY_LESSONS.filter((lesson) => !curriculumIds.has(lesson.id)),
 ];
 
 function progress(

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeClassStats,
+  classifyStudentAttention,
   evaluateAssignment,
   formatWeakKeys,
   keyLabel,
@@ -63,6 +64,61 @@ describe("summarizeStudent", () => {
     );
     expect(computeClassStats([legacyStudent]).mostMissedShortcuts).toEqual([]);
     expect(computeClassStats([legacyStudent]).averageShortcutReactionMs).toBe(0);
+  });
+});
+
+describe("teacher attention analytics", () => {
+  it("uses mutually exclusive deterministic classifications", () => {
+    const significantlyBehind: Student = {
+      ...baseStudent,
+      id: "behind",
+      status: "needs-practice",
+      lessonsCompleted: 1,
+      accuracy: 70,
+    };
+    const needsAccuracy: Student = {
+      ...baseStudent,
+      id: "accuracy",
+      status: "on-track",
+      lessonsCompleted: 5,
+      accuracy: 85,
+    };
+    const otherPractice: Student = {
+      ...baseStudent,
+      id: "other",
+      status: "needs-practice",
+      lessonsCompleted: 5,
+      accuracy: 95,
+    };
+
+    expect(classifyStudentAttention(significantlyBehind)).toBe(
+      "significantly-behind",
+    );
+    expect(classifyStudentAttention(needsAccuracy)).toBe(
+      "needs-accuracy-practice",
+    );
+    expect(classifyStudentAttention(otherPractice)).toBe("other-practice");
+    expect(classifyStudentAttention(baseStudent)).toBe("on-pace");
+
+    const stats = computeClassStats([
+      significantlyBehind,
+      needsAccuracy,
+      otherPractice,
+      baseStudent,
+    ]);
+    expect(stats.studentsOnPace).toBe(1);
+    expect(stats.needingAccuracyPractice).toBe(1);
+    expect(stats.significantlyBehind).toBe(1);
+    expect(stats.otherPracticeNeeds).toBe(1);
+  });
+
+  it("renders empty-class analytics as zero rather than invalid values", () => {
+    const stats = computeClassStats([]);
+    expect(stats.studentCount).toBe(0);
+    expect(stats.averageKeyboardHealth).toBe(0);
+    expect(stats.studentsOnPace).toBe(0);
+    expect(stats.needingAccuracyPractice).toBe(0);
+    expect(stats.significantlyBehind).toBe(0);
   });
 });
 

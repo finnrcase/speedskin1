@@ -27,6 +27,11 @@ interface TypingAreaProps {
    * same prompt is reset in place.
    */
   onRetry?: () => void;
+  /** Academy lessons keep the result for the shared SCORE phase. */
+  onComplete?: (result: TypingResult) => void;
+  /** Legacy typing screens record immediately; Academy lessons record once all stages finish. */
+  recordResult?: boolean;
+  showResults?: boolean;
 }
 
 /**
@@ -43,6 +48,9 @@ function TypingRun({
   timeLimitSeconds,
   nextHref,
   onRetry,
+  onComplete,
+  recordResult = true,
+  showResults = true,
 }: TypingAreaProps) {
   const { info } = useDevice();
   const { recordLessonResult } = useUserProgress();
@@ -53,9 +61,10 @@ function TypingRun({
   const handleComplete = useCallback(
     (r: TypingResult) => {
       setResult(r);
-      if (lesson) recordLessonResult(lesson, r);
+      if (lesson && recordResult) recordLessonResult(lesson, r);
+      onComplete?.(r);
     },
-    [lesson, recordLessonResult],
+    [lesson, onComplete, recordLessonResult, recordResult],
   );
 
   const engine = useTypingEngine(target, {
@@ -111,7 +120,7 @@ function TypingRun({
       <ProgressBar value={engine.progress} label="Lesson progress" />
 
       <Card className="min-h-44 border-brand/10 bg-cream">
-        {isComplete && result ? (
+        {isComplete && result && showResults ? (
           <ResultsSummary result={result} onRetry={handleRetry} nextHref={nextHref} />
         ) : (
           <div

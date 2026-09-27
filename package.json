@@ -4,30 +4,33 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm run curriculum:validate",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
+    "curriculum:validate": "node scripts/curriculum-report.mjs --validate-only",
+    "curriculum:report": "node scripts/curriculum-report.mjs",
     "screenshots": "next build && node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
     "lucide-react": "^1.18.0",
-    "next": "^16.2.9",
+    "next": "^16.3.3",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.3.3",
     "playwright": "^1.61.0",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   }
 }

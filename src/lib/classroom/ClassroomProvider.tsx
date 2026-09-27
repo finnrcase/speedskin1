@@ -198,6 +198,10 @@ function assignmentFromRow(row: AssignmentRow): Assignment {
     minPythonLessons: row.min_python_lessons ?? undefined,
     minShortcutLessons: row.min_shortcut_lessons ?? undefined,
     minShortcutMasteryPct: row.min_shortcut_mastery_pct ?? undefined,
+    academyId: (row.academy_id as Assignment["academyId"]) ?? undefined,
+    typingLevel: (row.typing_level as Assignment["typingLevel"]) ?? undefined,
+    curriculumLevel:
+      (row.curriculum_level as Assignment["curriculumLevel"]) ?? undefined,
   };
 }
 
@@ -217,6 +221,9 @@ function assignmentToInsert(input: NewAssignmentInput, createdBy: string) {
     target_mode: input.targetMode ?? null,
     lesson_ids: input.lessonIds ?? null,
     target_label: input.targetLabel ?? null,
+    academy_id: input.academyId ?? null,
+    typing_level: input.typingLevel ?? null,
+    curriculum_level: input.curriculumLevel ?? null,
     created_by: createdBy,
   };
 }
